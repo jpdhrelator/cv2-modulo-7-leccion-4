@@ -1,0 +1,2539 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Actividad práctica · Spies, stubs y mocks — Vitest y Vue Test Utils</title>
+<style>
+  /* ==================================================================
+     SISTEMA VISUAL
+     Cada ejercicio tiene un COLOR PROPIO. Ese color pinta la banda del
+     título, el riel de los pasos y la píldora del menú fijo. Así, mires
+     donde mires, siempre sabes en qué ejercicio estás.
+     ================================================================== */
+  :root{
+    --bg:#eaeef3;
+    --surface:#ffffff;
+    --surface-2:#f5f8fa;
+    --ink:#151c23;
+    --ink-soft:#5a6673;
+    --line:#dce3ea;
+    --brand:#42b883;
+    --brand-dark:#2f8f66;
+    --accent:#34495e;
+    --warn:#e8a33d;
+    --danger:#c0392b;
+    --info:#3b7dd8;
+    --code-bg:#1b212c;
+    --code-ink:#e6edf3;
+    --radius:14px;
+    --barra-alto:52px;
+    --sombra:0 1px 2px rgba(20,30,40,.05), 0 8px 24px rgba(20,30,40,.07);
+
+    /* color por defecto; cada sección lo sobrescribe más abajo */
+    --acento:#34495e;
+    --acento-suave:#eef2f6;
+  }
+
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.65;
+    padding-top:var(--barra-alto);
+  }
+  .wrap{max-width:1000px;margin:0 auto;padding:2rem 1.5rem 6rem;}
+
+  /* ------------------------------------------------------------------
+     BARRA FIJA — se construye desde JavaScript al final del documento
+     ------------------------------------------------------------------ */
+  .barra-fija{
+    position:fixed;top:0;left:0;right:0;z-index:60;
+    background:rgba(255,255,255,.94);
+    backdrop-filter:saturate(180%) blur(12px);
+    -webkit-backdrop-filter:saturate(180%) blur(12px);
+    border-bottom:1px solid var(--line);
+    box-shadow:0 1px 12px rgba(20,30,40,.06);
+  }
+  .barra-progreso{height:3px;background:transparent;}
+  .barra-progreso i{display:block;height:100%;width:0;background:linear-gradient(90deg,#42b883,#3b7dd8);transition:width .1s linear;}
+  .barra-cuerpo{
+    max-width:1000px;margin:0 auto;
+    height:calc(var(--barra-alto) - 3px);
+    display:flex;align-items:center;gap:.75rem;padding:0 1.5rem;
+  }
+  .barra-marca{
+    font-size:.7rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
+    color:#fff;background:var(--accent);padding:.25rem .55rem;border-radius:5px;
+    white-space:nowrap;flex-shrink:0;
+  }
+  .barra-actual{
+    font-size:.85rem;font-weight:700;color:var(--ink);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    flex:1;min-width:0;
+  }
+  .barra-saltos{display:flex;gap:.3rem;flex-shrink:0;}
+  .barra-saltos a{
+    display:inline-flex;align-items:center;justify-content:center;
+    min-width:30px;height:30px;padding:0 .5rem;
+    border-radius:8px;border:1px solid var(--line);
+    background:var(--surface-2);color:var(--ink-soft);
+    font-size:.78rem;font-weight:700;text-decoration:none;
+    transition:all .15s ease;
+  }
+  .barra-saltos a:hover{border-color:var(--acento);color:var(--acento);}
+  .barra-saltos a.activo{
+    background:var(--acento-pill,#34495e);border-color:var(--acento-pill,#34495e);
+    color:#fff;box-shadow:0 2px 8px rgba(20,30,40,.18);
+  }
+  .barra-saltos a.arriba{font-size:.95rem;}
+  @media (max-width:760px){
+    .barra-actual{display:none;}
+    .barra-saltos{flex:1;justify-content:flex-end;}
+  }
+  @media (max-width:420px){
+    .barra-saltos a.arriba{display:none;}
+  }
+
+  /* ------------------------------------------------------------------ */
+  header.hero{
+    background:
+      radial-gradient(1200px 400px at 15% -10%, rgba(66,184,131,.28), transparent 60%),
+      linear-gradient(135deg,#22313f,#141d26);
+    color:#fff;padding:3.25rem 1.5rem;
+  }
+  header.hero .wrap{padding:0;max-width:1000px;}
+  header.hero h1{margin:0 0 .75rem;font-size:2.15rem;line-height:1.15;letter-spacing:-.02em;}
+  header.hero p{margin:0 0 .75rem;color:#c4d1dc;max-width:70ch;}
+  header.hero p:last-child{margin-bottom:0;}
+  header.hero strong{color:#fff;}
+  header.hero code{background:rgba(255,255,255,.12);color:#d7f0e4;}
+  .badge{
+    display:inline-block;background:var(--brand);color:#0b2418;
+    font-weight:800;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;
+    padding:.3rem .8rem;border-radius:999px;margin-bottom:1.1rem;
+  }
+
+  /* ------------------------------------------------------------------
+     ÍNDICE — tarjetas numeradas, no una lista suelta
+     ------------------------------------------------------------------ */
+  nav.toc{
+    background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    padding:1.5rem;margin:2rem 0 2.5rem;box-shadow:var(--sombra);
+  }
+  nav.toc h2{
+    margin:0 0 1rem;font-size:.78rem;text-transform:uppercase;letter-spacing:.1em;
+    color:var(--ink-soft);font-weight:800;
+  }
+  nav.toc ol{margin:0;padding:0;list-style:none;display:grid;gap:.5rem;}
+  nav.toc li{
+    margin:0;position:relative;
+    padding:.7rem .9rem .7rem 3rem;
+    border:1px solid var(--line);border-radius:10px;background:var(--surface-2);
+    transition:all .15s ease;
+  }
+  nav.toc li::before{
+    position:absolute;left:.7rem;top:50%;transform:translateY(-50%);
+    width:26px;height:26px;border-radius:7px;
+    display:flex;align-items:center;justify-content:center;
+    background:var(--accent);color:#fff;font-size:.78rem;font-weight:800;
+  }
+  /* La numeración del índice tiene que ser LA MISMA que la de las secciones
+     y la del menú fijo. Si acá dijera "2" donde el ejercicio dice "1",
+     el lector pierde la referencia — que es justo lo que queremos evitar. */
+  nav.toc li:nth-child(1)::before{content:"◆";background:#5b6b7c;font-size:.7rem;}
+  nav.toc li:nth-child(2)::before{content:"1";background:#2f8f66;}
+  nav.toc li:nth-child(3)::before{content:"2";background:#2a6fc9;}
+  nav.toc li:nth-child(4)::before{content:"3";background:#c47a1b;}
+  nav.toc li:nth-child(5)::before{content:"4";background:#7a4fc0;}
+  nav.toc li:nth-child(6)::before{content:"5";background:#b8384f;}
+  nav.toc li:nth-child(7)::before{content:"6";background:#0f7b8a;}
+  nav.toc li:nth-child(8)::before{content:"✓";background:#33424f;}
+  /* Barra lateral del color del ejercicio: refuerza el código de color */
+  nav.toc li::after{
+    content:"";position:absolute;left:0;top:8px;bottom:8px;width:3px;border-radius:0 3px 3px 0;
+  }
+  nav.toc li:nth-child(1)::after{background:#5b6b7c;}
+  nav.toc li:nth-child(2)::after{background:#2f8f66;}
+  nav.toc li:nth-child(3)::after{background:#2a6fc9;}
+  nav.toc li:nth-child(4)::after{background:#c47a1b;}
+  nav.toc li:nth-child(5)::after{background:#7a4fc0;}
+  nav.toc li:nth-child(6)::after{background:#b8384f;}
+  nav.toc li:nth-child(7)::after{background:#0f7b8a;}
+  nav.toc li:nth-child(8)::after{background:#33424f;}
+  nav.toc li:hover{background:#fff;border-color:#c3cfda;transform:translateX(3px);box-shadow:var(--sombra);}
+  nav.toc a{color:var(--ink);text-decoration:none;font-weight:700;}
+  nav.toc a:hover{color:var(--brand-dark);}
+  nav.toc .min{color:var(--ink-soft);font-weight:500;font-size:.82rem;display:block;}
+
+  /* ------------------------------------------------------------------
+     SECCIÓN DE EJERCICIO — banda de color + contenido
+     ------------------------------------------------------------------ */
+  body{counter-reset:ejercicio;}
+
+  section.ejercicio{
+    background:var(--surface);border:1px solid var(--line);
+    border-radius:var(--radius);padding:2rem;margin-bottom:2.25rem;
+    box-shadow:var(--sombra);
+    scroll-margin-top:calc(var(--barra-alto) + 12px);
+    overflow:hidden;
+  }
+
+  /* Cada ejercicio, su color. Ésta es la clave para no perderse. */
+  #prep  {--acento:#5b6b7c;--acento-suave:#eef1f4;--acento-2:#43505d;}
+  #ej1   {--acento:#2f8f66;--acento-suave:#e9f6f0;--acento-2:#1f6b4b;}
+  #ej2   {--acento:#2a6fc9;--acento-suave:#e9f1fb;--acento-2:#1d5099;}
+  #ej3   {--acento:#c47a1b;--acento-suave:#fdf3e4;--acento-2:#96590c;}
+  #ej4   {--acento:#7a4fc0;--acento-suave:#f2ecfb;--acento-2:#5b3595;}
+  #ej5   {--acento:#b8384f;--acento-suave:#fbebee;--acento-2:#8d2438;}
+  #ej6   {--acento:#0f7b8a;--acento-suave:#e6f4f6;--acento-2:#0a5b66;}
+  #cierre{--acento:#33424f;--acento-suave:#eef1f4;--acento-2:#22303c;}
+
+  /* Banda del título, a sangre completa */
+  section.ejercicio > h2{
+    margin:-2rem -2rem 0;
+    padding:1.4rem 2rem 1.3rem 2rem;
+    background:linear-gradient(135deg,var(--acento),var(--acento-2));
+    color:#fff;font-size:1.4rem;line-height:1.3;letter-spacing:-.01em;
+    border:0;
+    display:flex;align-items:center;gap:.9rem;flex-wrap:wrap;
+  }
+  section.ejercicio > h2 em{font-style:normal;background:rgba(255,255,255,.18);padding:.05em .4em;border-radius:5px;}
+
+  /* Número del ejercicio en un cuadrado */
+  section.ejercicio:not(#prep):not(#cierre){counter-increment:ejercicio;}
+  section.ejercicio > h2::before{
+    flex-shrink:0;
+    width:40px;height:40px;border-radius:11px;
+    background:rgba(255,255,255,.2);
+    border:1px solid rgba(255,255,255,.28);
+    display:flex;align-items:center;justify-content:center;
+    font-size:1.15rem;font-weight:800;
+  }
+  section.ejercicio:not(#prep):not(#cierre) > h2::before{content:counter(ejercicio);}
+  #prep   > h2::before{content:"◆";font-size:1rem;}
+  #cierre > h2::before{content:"✓";}
+
+  /* Franja de metadatos, pegada bajo la banda */
+  .meta{
+    margin:0 -2rem 1.75rem;
+    padding:.7rem 2rem;
+    background:var(--acento-suave);
+    border-bottom:1px solid var(--line);
+    color:var(--ink-soft);font-size:.85rem;
+  }
+  .meta strong{color:var(--acento-2);}
+
+  /* ------------------------------------------------------------------
+     PASOS — h3 numerado sobre un riel vertical
+     ------------------------------------------------------------------ */
+  section.ejercicio{counter-reset:paso;}
+  section.ejercicio h3{
+    counter-increment:paso;
+    position:relative;
+    margin:2.5rem 0 .85rem;
+    padding:0 0 .55rem 2.6rem;
+    font-size:1.14rem;font-weight:800;color:var(--ink);
+    letter-spacing:-.01em;
+    border-bottom:2px solid var(--acento-suave);
+  }
+  section.ejercicio h3::before{
+    content:counter(paso);
+    position:absolute;left:0;top:-.1em;
+    width:28px;height:28px;border-radius:9px;
+    background:var(--acento);color:#fff;
+    display:flex;align-items:center;justify-content:center;
+    font-size:.8rem;font-weight:800;
+    box-shadow:0 2px 6px rgba(20,30,40,.16);
+  }
+  section.ejercicio h3:first-of-type{margin-top:1rem;}
+
+  h4{margin:1.6rem 0 .5rem;font-size:.9rem;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.06em;font-weight:800;}
+
+  p{margin:0 0 1rem;}
+  section.ejercicio > ol,
+  section.ejercicio > ul{margin:0 0 1rem;padding-left:1.4rem;}
+  section.ejercicio > ol li,
+  section.ejercicio > ul li{margin-bottom:.4rem;}
+
+  /* ------------------------------------------------------------------
+     CÓDIGO — la etiqueta dice de un vistazo qué tipo de bloque es
+     ------------------------------------------------------------------ */
+  .file{
+    display:inline-flex;align-items:flex-start;gap:.45rem;
+    background:var(--accent);color:#fff;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.78rem;font-weight:600;
+    line-height:1.5;
+    padding:.35rem .8rem;border-radius:8px 8px 0 0;margin-top:1.4rem;
+    max-width:100%;
+  }
+  /* El ícono se queda arriba cuando la etiqueta se parte en dos líneas
+     (pasa en pantallas angostas). Centrado se vería flotando en el medio. */
+  .file::before{content:"📄";font-family:inherit;flex-shrink:0;line-height:1.5;}
+  .file--term{background:#1b212c;}
+  .file--term::before{content:"❯";font-weight:800;}
+  .file--api{background:#2a5da8;}
+  .file--api::before{content:"⇄";}
+  .file--mal{background:var(--danger);}
+  .file--mal::before{content:"✗";font-weight:800;}
+  .file--maqueta{background:#5b6b7c;}
+  .file--maqueta::before{content:"◧";font-weight:800;}
+  .file--bien{background:var(--brand-dark);}
+  .file--bien::before{content:"✓";font-weight:800;}
+
+  pre{
+    background:var(--code-bg);color:var(--code-ink);
+    padding:1.1rem;border-radius:0 var(--radius) var(--radius) var(--radius);
+    overflow-x:auto;margin:0 0 1.1rem;font-size:.84rem;line-height:1.6;
+    box-shadow:0 3px 14px rgba(20,30,40,.16);
+  }
+  pre code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}
+  p code,li code,td code,th code{
+    background:#e8edf2;color:#1d2b38;padding:.12rem .38rem;border-radius:5px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.86em;
+    border:1px solid #dae1e8;
+  }
+
+  /* ------------------------------------------------------------------
+     AVISOS — cada tipo lleva su etiqueta visible arriba
+     ------------------------------------------------------------------ */
+  .nota,.ojo,.alto,.vivo{
+    position:relative;
+    padding:2.1rem 1.15rem 1rem 1.35rem;
+    border-radius:0 10px 10px 0;
+    margin:1.25rem 0;
+    border-left:4px solid;
+  }
+  .nota::before,.ojo::before,.alto::before,.vivo::before{
+    position:absolute;top:.6rem;left:1.35rem;
+    font-size:.65rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
+    padding:.15rem .5rem;border-radius:4px;color:#fff;
+  }
+  .nota p:last-child,.ojo p:last-child,.alto p:last-child,.vivo p:last-child{margin-bottom:0;}
+
+  .nota{background:#eef8f3;border-left-color:var(--brand);}
+  .nota::before{content:"Clave";background:var(--brand-dark);}
+  .nota strong{color:var(--brand-dark);}
+
+  .ojo{background:#fdf6e8;border-left-color:var(--warn);}
+  .ojo::before{content:"Matiz";background:#a06b12;}
+  .ojo strong{color:#8a5c0f;}
+
+  .alto{background:#fdeceb;border-left-color:var(--danger);}
+  .alto::before{content:"Cuidado";background:#a5281b;}
+  .alto strong{color:#96251a;}
+
+  .vivo{background:#ebf2fc;border-left-color:var(--info);}
+  .vivo::before{content:"En vivo";background:#2a5da8;}
+  .vivo strong{color:#22528f;}
+
+  /* ------------------------------------------------------------------
+     TABLAS
+     ------------------------------------------------------------------ */
+  .tabla-scroll{
+    overflow-x:auto;margin:1.25rem 0;
+    border:1px solid var(--line);border-radius:10px;background:var(--surface);
+  }
+  table{width:100%;border-collapse:collapse;margin:0;font-size:.88rem;min-width:540px;}
+  th,td{text-align:left;padding:.65rem .85rem;border-bottom:1px solid var(--line);vertical-align:top;}
+  thead th{
+    background:var(--acento-suave);color:var(--acento-2);
+    font-weight:800;font-size:.76rem;text-transform:uppercase;letter-spacing:.05em;
+    border-bottom:2px solid var(--acento);
+    position:sticky;top:0;
+  }
+  tbody tr:nth-child(even){background:var(--surface-2);}
+  tbody tr:hover{background:#eef4f8;}
+  tbody tr:last-child td{border-bottom:0;}
+  td.ok{color:var(--brand-dark);font-weight:700;}
+  td.no{color:var(--danger);font-weight:700;}
+
+  /* ------------------------------------------------------------------
+     RETO Y CHECKLIST — cierres visuales de cada ejercicio
+     ------------------------------------------------------------------ */
+  .reto{
+    position:relative;
+    border:2px dashed var(--brand);border-radius:12px;
+    padding:2.2rem 1.35rem 1.15rem;margin-top:1.75rem;
+    background:linear-gradient(180deg,#f4fcf8,#ffffff);
+  }
+  .reto::before{
+    content:"Mini-reto";position:absolute;top:-.7rem;left:1.1rem;
+    background:var(--brand-dark);color:#fff;
+    font-size:.65rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
+    padding:.2rem .6rem;border-radius:5px;
+  }
+  .reto h4{margin-top:0;color:var(--brand-dark);font-size:1rem;text-transform:none;letter-spacing:0;}
+  .reto p:last-child,.reto ol:last-child{margin-bottom:0;}
+  .reto ol{padding-left:1.3rem;}
+
+  .check{
+    position:relative;
+    background:var(--acento-suave);border:1px solid var(--acento);
+    border-radius:12px;padding:2.2rem 1.35rem 1.2rem;margin-top:1.75rem;
+  }
+  .check::before{
+    content:"Cierre";position:absolute;top:-.7rem;left:1.1rem;
+    background:var(--acento);color:#fff;
+    font-size:.65rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
+    padding:.2rem .6rem;border-radius:5px;
+  }
+  .check h4{margin-top:0;color:var(--acento-2);font-size:1rem;text-transform:none;letter-spacing:0;}
+  .check ul{margin:0;padding-left:0;list-style:none;}
+  .check li{
+    margin-bottom:.5rem;position:relative;padding-left:1.7rem;
+    font-size:.92rem;
+  }
+  .check li::before{
+    content:"";position:absolute;left:0;top:.35em;
+    width:15px;height:15px;border-radius:4px;
+    border:2px solid var(--acento);background:#fff;
+  }
+  .check li:last-child{margin-bottom:0;}
+
+  /* ------------------------------------------------------------------
+     FLUJO Y COMPARACIONES
+     ------------------------------------------------------------------ */
+  .flujo{
+    display:flex;flex-wrap:wrap;align-items:center;gap:.45rem;
+    background:linear-gradient(135deg,#22313f,#161f28);color:#fff;border-radius:12px;
+    padding:1.1rem 1.25rem;margin:1.4rem 0;font-size:.82rem;
+    box-shadow:0 3px 14px rgba(20,30,40,.18);
+  }
+  .flujo span{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:7px;padding:.35rem .7rem;font-weight:700;}
+  .flujo span.hi{background:var(--brand);color:#0b2418;border-color:var(--brand);}
+  .flujo em{color:#8fa3b5;font-style:normal;font-weight:800;}
+
+  .duo{display:grid;grid-template-columns:1fr 1fr;gap:1.1rem;margin:1.1rem 0;}
+  .duo > div{min-width:0;}
+  .duo .file{margin-top:0;}
+  @media (max-width:860px){ .duo{grid-template-columns:1fr;} }
+
+  footer{
+    text-align:center;color:var(--ink-soft);font-size:.85rem;
+    padding:2rem 1rem 0;margin-top:2rem;border-top:1px solid var(--line);
+  }
+
+  /* ------------------------------------------------------------------
+     BOTÓN COPIAR
+     ------------------------------------------------------------------ */
+  .bloque-codigo{position:relative;}
+  .btn-copiar{
+    position:absolute;top:.55rem;right:.55rem;
+    display:inline-flex;align-items:center;gap:.35rem;
+    min-height:32px;padding:0 .7rem;
+    border:1px solid rgba(255,255,255,.22);
+    border-radius:7px;
+    background:rgba(255,255,255,.09);
+    color:#c9d4de;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    font-size:.74rem;font-weight:700;
+    cursor:pointer;opacity:0;
+    transition:opacity .15s ease, background .15s ease, color .15s ease;
+  }
+  .bloque-codigo:hover .btn-copiar,
+  .btn-copiar:focus-visible{opacity:1;}
+  .btn-copiar:hover{background:rgba(66,184,131,.28);color:#fff;border-color:rgba(66,184,131,.65);}
+  .btn-copiar.ok{background:#42b883;color:#0b2418;border-color:#42b883;opacity:1;}
+  .btn-copiar.falla{background:#c0392b;color:#fff;border-color:#c0392b;opacity:1;}
+  @media (hover:none){ .btn-copiar{opacity:1;} }
+
+  /* ------------------------------------------------------------------ */
+  @media (max-width:640px){
+    :root{--barra-alto:48px;}
+    .wrap{padding:1.25rem 1rem 4rem;}
+    section.ejercicio{padding:1.25rem 1rem;border-radius:12px;}
+    section.ejercicio > h2{
+      margin:-1.25rem -1rem 0;padding:1.1rem 1rem;font-size:1.15rem;gap:.6rem;
+    }
+    section.ejercicio > h2::before{width:32px;height:32px;font-size:1rem;}
+    .meta{margin:0 -1rem 1.25rem;padding:.6rem 1rem;font-size:.8rem;}
+    section.ejercicio h3{font-size:1.02rem;padding-left:2.3rem;margin-top:2rem;}
+    section.ejercicio h3::before{width:25px;height:25px;font-size:.74rem;}
+    header.hero{padding:2.25rem 1rem;}
+    header.hero h1{font-size:1.5rem;}
+    pre{font-size:.78rem;padding:.9rem;}
+    .btn-copiar{font-size:.7rem;padding:0 .5rem;}
+  }
+
+  /* ==================================================================
+     COLOREADO DE SINTAXIS
+     Lo pinta un resaltador propio, escrito a mano al final del documento.
+     Sin CDN ni librerías: este archivo tiene que funcionar abierto
+     directamente desde el disco, sin internet.
+     ================================================================== */
+  pre code{
+    --t-com:#7f8fa3;   /* comentarios      */
+    --t-str:#a8d96d;   /* textos           */
+    --t-kw:#d296ec;    /* palabras clave   */
+    --t-lit:#f89a6a;   /* true/false/null  */
+    --t-num:#f89a6a;   /* números          */
+    --t-fn:#7fb5ff;    /* funciones        */
+    --t-prop:#6fdcc9;  /* propiedades      */
+    --t-op:#92dbf7;    /* operadores       */
+    --t-tag:#f5838f;   /* etiquetas HTML   */
+    --t-attr:#f3cb6d;  /* atributos        */
+    --t-dir:#5ad79b;   /* directivas Vue   */
+  }
+  .t-com{color:var(--t-com);font-style:italic;}
+  .t-str{color:var(--t-str);}
+  .t-kw{color:var(--t-kw);font-weight:600;}
+  .t-lit{color:var(--t-lit);}
+  .t-num{color:var(--t-num);}
+  .t-fn{color:var(--t-fn);}
+  .t-prop{color:var(--t-prop);}
+  .t-op{color:var(--t-op);}
+  .t-tag{color:var(--t-tag);}
+  .t-attr{color:var(--t-attr);}
+  .t-dir{color:var(--t-dir);font-weight:600;}
+  .t-interp{color:var(--t-attr);}
+  .t-ruta{color:var(--t-attr);}
+
+  /* Distintivo del lenguaje, arriba a la derecha del bloque */
+  pre[data-lang]{position:relative;}
+  pre[data-lang]::after{
+    content:attr(data-lang);
+    position:absolute;top:.55rem;right:.6rem;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    font-size:.6rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
+    color:rgba(255,255,255,.28);
+    pointer-events:none;transition:opacity .15s ease;
+  }
+  .bloque-codigo:hover pre[data-lang]::after{opacity:0;}
+
+  /* ==================================================================
+     QUÉ ES CADA BLOQUE: el borde izquierdo lo dice sin leer nada
+     ================================================================== */
+  pre[data-tipo]{border-left:5px solid #46586e;}
+  pre[data-tipo="solucion"]{border-left-color:var(--brand);}
+  pre[data-tipo="problema"]{border-left-color:var(--danger);}
+  pre[data-tipo="maqueta"]{border-left-color:#5b6b7c;}
+  pre[data-tipo="terminal"]{border-left-color:#7f8fa3;}
+  pre[data-tipo="api"]{border-left-color:#4d8ce0;}
+
+  /* Cinta en la etiqueta: SOLUCIÓN / NO COPIAR */
+  .file::after{
+    margin-left:.5rem;padding:.1rem .45rem;border-radius:4px;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    font-size:.62rem;font-weight:800;letter-spacing:.09em;
+    flex-shrink:0;align-self:center;
+  }
+  .file--bien::after{content:"TE LO DAMOS";background:rgba(255,255,255,.24);color:#fff;}
+  .file--mal::after{content:"NO COPIAR";background:rgba(0,0,0,.28);color:#ffe2de;}
+  .file--maqueta::after{content:"LO ESCRIBES TÚ";background:rgba(255,255,255,.22);color:#fff;}
+
+  .file{scroll-margin-top:calc(var(--barra-alto) + 16px);}
+
+  /* ==================================================================
+     ÍNDICE DE CÓDIGO RESUELTO — se genera solo, al inicio de cada ejercicio
+     ================================================================== */
+  .resuelto{
+    margin:0 0 1.75rem;
+    border:1px solid var(--acento);border-radius:11px;
+    background:var(--surface);overflow:hidden;
+  }
+  .resuelto > summary{
+    cursor:pointer;list-style:none;
+    padding:.7rem 1rem;background:var(--acento-suave);
+    display:flex;align-items:center;gap:.55rem;flex-wrap:wrap;
+    font-size:.8rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--acento-2);
+  }
+  .resuelto > summary::-webkit-details-marker{display:none;}
+  .resuelto > summary::before{
+    content:"›";font-size:1.15rem;line-height:1;
+    transition:transform .15s ease;display:inline-block;
+  }
+  .resuelto[open] > summary::before{transform:rotate(90deg);}
+  .resuelto > summary:hover{filter:brightness(.97);}
+  .resuelto__conteo{
+    margin-left:auto;text-transform:none;letter-spacing:0;
+    font-weight:700;font-size:.75rem;color:var(--ink-soft);
+  }
+  .resuelto ol{
+    margin:0;padding:.7rem 1rem .85rem;list-style:none;
+    display:grid;gap:.3rem;counter-reset:archivo;
+  }
+  .resuelto li{counter-increment:archivo;margin:0;font-size:.85rem;}
+  .resuelto li::before{
+    content:counter(archivo);
+    display:inline-flex;align-items:center;justify-content:center;
+    width:19px;height:19px;margin-right:.55rem;border-radius:5px;
+    background:var(--acento);color:#fff;font-size:.66rem;font-weight:800;
+    vertical-align:.05em;
+  }
+  .resuelto a{
+    color:var(--ink);text-decoration:none;font-weight:600;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.83rem;
+    border-bottom:1px dashed transparent;
+  }
+  .resuelto a:hover{color:var(--acento-2);border-bottom-color:var(--acento);}
+  .resuelto__nota{
+    margin:0;padding:0 1rem .85rem;
+    font-size:.78rem;color:var(--ink-soft);
+  }
+
+  /* Para imprimir el material como apunte de clase */
+  @media print{
+    body{padding-top:0;background:#fff;}
+    .barra-fija,.btn-copiar{display:none !important;}
+    pre[data-lang]::after{display:none;}
+    section.ejercicio{break-inside:avoid;box-shadow:none;border:1px solid #ccc;}
+    pre{box-shadow:none;}
+    .resuelto{break-inside:avoid;}
+    .resuelto[open] > summary::before{transform:none;}
+  }
+
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="wrap">
+    <span class="badge">Módulo 7 · Lección 4 · Actividad práctica II</span>
+    <h1>El Mesón: aislar la unidad con <em>spies</em>, <em>stubs</em> y <em>mocks</em></h1>
+    <p>
+      En la primera actividad probaste funciones puras: entraban datos, salían datos, y no había nada
+      que estorbara. <strong>Se acabó la parte fácil.</strong>
+    </p>
+    <p>
+      Acá el código habla con un servidor, registra telemetría, dibuja en un canvas, navega con el
+      router y guarda con retardo. Cinco dependencias que un test unitario <strong>no puede
+      ejecutar</strong>. Tu trabajo es reemplazarlas: <code>vi.fn()</code>, <code>vi.spyOn()</code>,
+      <code>global.stubs</code> y <code>vi.mock()</code>.
+    </p>
+    <p>
+      Este documento <strong>no trae los tests resueltos</strong>. Trae el código a probar, la lista de
+      casos y los criterios con los que se revisa.
+    </p>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="vivo">
+    <strong>El encargo</strong>
+    <p>
+      La cafetería creció. Ahora tiene un <strong>mesón digital</strong>: una pantalla táctil donde el
+      cajero arma el pedido tocando productos, lo cobra y manda la boleta a imprimir.
+    </p>
+    <p>
+      La versión anterior —la de las funciones puras que probaste— quedó cubierta. Esta capa
+      <strong>no tiene ni un test</strong>, y es la que de verdad puede cobrar de más: acá viven las
+      llamadas al servidor.
+    </p>
+    <p>
+      Te contratan para cubrirla. La dificultad no es escribir <code>expect</code>: es
+      <strong>decidir qué doble usar para cada dependencia</strong> y no ejecutar nada real.
+    </p>
+  </div>
+
+  <div class="alto">
+    <strong>Otra vez: hay un defecto escondido. Uno solo.</strong>
+    <p>
+      Está en el componente grande del <strong>Requisito 6</strong> y es de los que le cuestan plata a
+      alguien. No te voy a decir cuál es.
+    </p>
+    <p>
+      Si escribes los casos que se te piden, <strong>uno de tus tests va a ponerse rojo</strong>. Ahí:
+      <strong>arreglas el componente, nunca el test</strong>, y lo documentas en el README.
+    </p>
+    <p>
+      Pista de método, no de contenido: cuando revises ese componente, busca una variable que
+      <em>se declara, se asigna y no la usa nadie</em>. Eso casi siempre significa que alguien empezó a
+      escribir una protección y no la terminó.
+    </p>
+  </div>
+
+  <div class="ojo">
+    <strong>Qué se evalúa y qué no.</strong>
+    <p>
+      Se evalúa <strong>que elijas el doble más liviano que resuelva el problema</strong>: antes spy que
+      stub, antes stub que mock. Un <code>vi.mock</code> donde bastaba un <code>vi.fn()</code> es un
+      error, aunque el test pase.
+    </p>
+    <p>
+      Se evalúa también que <strong>ningún test ejecute nada real</strong>: ni una petición, ni un
+      <code>setTimeout</code> de verdad, ni una línea escrita en la consola.
+    </p>
+    <p>
+      <strong>No</strong> se evalúa la cantidad de tests ni el porcentaje de cobertura.
+    </p>
+  </div>
+
+  <nav class="toc">
+    <h2>Ruta de trabajo</h2>
+    <ol>
+      <li><a href="#prep">De dónde partes</a> <span class="min">· proyecto, entorno y el código que hay que probar</span></li>
+      <li><a href="#ej1"><strong>Requisito 1</strong> — Montar, mirar e interactuar</a> <span class="min">· sin dobles todavía · 6 casos</span></li>
+      <li><a href="#ej2"><strong>Requisito 2</strong> — El espía que tú entregas</a> <span class="min">· <code>vi.fn()</code> · 5 casos</span></li>
+      <li><a href="#ej3"><strong>Requisito 3</strong> — El efecto invisible</a> <span class="min">· <code>vi.spyOn()</code> · 5 casos</span></li>
+      <li><a href="#ej4"><strong>Requisito 4</strong> — Dictar la respuesta</a> <span class="min">· stubs de función · 6 casos</span></li>
+      <li><a href="#ej5"><strong>Requisito 5</strong> — El hijo que estorba</a> <span class="min">· <code>global.stubs</code> · 5 casos</span></li>
+      <li><a href="#ej6"><strong>Requisito 6</strong> — El módulo entero</a> <span class="min">· <code>vi.mock</code> · 8 casos · acá está el defecto</span></li>
+      <li><a href="#cierre">Cómo se revisa · Errores que te van a pasar · Si terminas antes</a></li>
+    </ol>
+  </nav>
+
+<!-- ================================================================ -->
+<section class="ejercicio" id="prep">
+  <h2>De dónde partes</h2>
+  <p class="meta"><strong>Antes de escribir un solo <code>it</code>.</strong> Crea el proyecto, pega los seis archivos que te entregamos y comprueba que el test de ejemplo pasa.</p>
+
+  <h3>Paso 1 — El proyecto y las dependencias</h3>
+
+  <span class="file file--term">Terminal</span>
+<pre><code>npm create vite@latest meson-tests -- --template vue
+cd meson-tests
+npm install
+
+# Acá SÍ montamos componentes: hace falta el entorno de navegador
+npm install -D vitest @vue/test-utils jsdom</code></pre>
+
+  <h3>Paso 2 — La configuración</h3>
+
+  <span class="file">vite.config.js</span>
+<pre><code>import { fileURLToPath, URL } from 'node:url'
+import { defineConfig } from 'vite'
+import vue from '@vitejs/plugin-vue'
+
+export default defineConfig({
+  plugins: [vue()],
+
+  resolve: {
+    alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) }
+  },
+
+  test: {
+    environment: 'jsdom',
+    include: ['tests/**/*.test.js'],
+
+    // Higiene automática entre tests. Ojo: restoreMocks sólo revierte
+    // lo que instalaste con vi.spyOn. Lo vas a necesitar en el R2.
+    clearMocks: true,
+    restoreMocks: true
+  }
+})</code></pre>
+
+  <span class="file">package.json</span>
+<pre><code>{
+  "scripts": {
+    "test": "vitest",
+    "test:run": "vitest run"
+  }
+}</code></pre>
+
+  <h3>Paso 3 — Los servicios (te los damos enteros)</h3>
+
+  <p>
+    Éstas son las dos fronteras con el mundo exterior. <strong>Ninguna de las dos se puede ejecutar en
+    un test</strong>, y ése es todo el problema de esta actividad.
+  </p>
+
+  <span class="file">src/servicios/pedidosApi.js</span>
+<pre><code>import axios from 'axios'
+
+const http = axios.create({ baseURL: import.meta.env.VITE_API_URL })
+
+export async function obtenerCatalogo() {
+  const { data } = await http.get('/productos')
+  return data
+}
+
+export async function enviarPedido(items) {
+  const { data } = await http.post('/pedidos', { items })
+  return data   // { id: 'B-77', folio: 77 }
+}</code></pre>
+
+  <span class="file">src/servicios/telemetria.js</span>
+<pre><code>// Registro de uso del mesón. En producción esto viaja a un panel externo.
+// No cambia NADA en pantalla: si no lo espías, no hay forma de saber
+// que se llamó.
+export const telemetria = {
+  registrar(evento, datos) {
+    console.info('[telemetría]', evento, datos)
+  }
+}</code></pre>
+
+  <h3>Paso 4 — El dominio (te lo damos entero)</h3>
+
+  <span class="file">src/dominio/caja.js</span>
+<pre><code>import { telemetria } from '@/servicios/telemetria.js'
+
+/**
+ * Cierra la caja del turno: cuenta los pedidos, suma los totales
+ * y deja constancia en telemetría.
+ */
+export function cerrarCaja(pedidos) {
+  const total = pedidos.reduce((suma, pedido) =&gt; suma + pedido.total, 0)
+  const resumen = { pedidos: pedidos.length, total }
+
+  telemetria.registrar('caja_cerrada', resumen)
+
+  return resumen
+}</code></pre>
+
+  <span class="file">src/dominio/cobro.js</span>
+<pre><code>/**
+ * Cobra un pedido contra una pasarela de pago.
+ * La pasarela NO se importa: llega como parámetro. Eso es inyección de
+ * dependencias, y es lo que hace esta función testeable sin vi.mock.
+ *
+ * pasarela.pagar(monto) devuelve una promesa con:
+ *   { aprobado: true,  codigo: 'TRX-9' }
+ *   { aprobado: false, motivo: 'Fondos insuficientes' }
+ */
+export async function cobrar(pedido, pasarela) {
+  if (pedido.total &lt;= 0) {
+    throw new Error('El pedido está vacío')
+  }
+
+  const respuesta = await pasarela.pagar(pedido.total)
+
+  if (!respuesta.aprobado) {
+    return { estado: 'rechazado', motivo: respuesta.motivo }
+  }
+
+  return { estado: 'pagado', codigo: respuesta.codigo }
+}</code></pre>
+
+  <h3>Paso 5 — Los componentes (te los damos enteros)</h3>
+
+  <span class="file">src/componentes/BotonProducto.vue</span>
+<pre><code>&lt;script setup&gt;
+defineProps({
+  producto:  { type: Object,   required: true },
+  alAgregar: { type: Function, required: true },
+  agotado:   { type: Boolean,  default: false }
+})
+&lt;/script&gt;
+
+&lt;template&gt;
+  &lt;button
+    class="producto"
+    type="button"
+    :data-test="`producto-${producto.codigo}`"
+    :disabled="agotado"
+    @click="alAgregar(producto)"
+  &gt;
+    &lt;span data-test="nombre"&gt;{{ producto.nombre }}&lt;/span&gt;
+    &lt;span data-test="precio"&gt;{{ producto.precio }}&lt;/span&gt;
+  &lt;/button&gt;
+&lt;/template&gt;</code></pre>
+
+  <span class="file">src/componentes/ContadorLinea.vue</span>
+<pre><code>&lt;script setup&gt;
+import { computed } from 'vue'
+
+const props = defineProps({
+  item:   { type: Object, required: true },
+  maximo: { type: Number, default: 9 }
+})
+
+// Este componente NO recibe callbacks: avisa con eventos.
+// Es la diferencia con BotonProducto, y decide cómo se prueba cada uno.
+const emit = defineEmits(['cambiar', 'quitar'])
+
+const subtotal = computed(() =&gt; props.item.precio * props.item.cantidad)
+
+function subir() {
+  if (props.item.cantidad &gt;= props.maximo) return
+  emit('cambiar', { codigo: props.item.codigo, cantidad: props.item.cantidad + 1 })
+}
+
+function bajar() {
+  // Bajar de 1 no deja el pedido en cero: saca la línea entera
+  if (props.item.cantidad &lt;= 1) {
+    emit('quitar', props.item.codigo)
+    return
+  }
+  emit('cambiar', { codigo: props.item.codigo, cantidad: props.item.cantidad - 1 })
+}
+&lt;/script&gt;
+
+&lt;template&gt;
+  &lt;div class="linea" :data-test="`linea-${item.codigo}`"&gt;
+    &lt;span data-test="nombre"&gt;{{ item.nombre }}&lt;/span&gt;
+
+    &lt;button data-test="bajar" type="button" aria-label="Quitar una unidad" @click="bajar"&gt;−&lt;/button&gt;
+    &lt;span data-test="cantidad"&gt;{{ item.cantidad }}&lt;/span&gt;
+    &lt;button
+      data-test="subir"
+      type="button"
+      aria-label="Agregar una unidad"
+      :disabled="item.cantidad &gt;= maximo"
+      @click="subir"
+    &gt;+&lt;/button&gt;
+
+    &lt;span data-test="subtotal"&gt;{{ subtotal }}&lt;/span&gt;
+  &lt;/div&gt;
+&lt;/template&gt;</code></pre>
+
+  <span class="file">src/componentes/EtiquetaTermica.vue</span>
+<pre><code>&lt;script setup&gt;
+import { onMounted, ref } from 'vue'
+
+defineProps({
+  pedido: { type: Array, default: () =&gt; [] }
+})
+
+const lienzo = ref(null)
+
+onMounted(() =&gt; {
+  // Dibuja el código de barras de la boleta.
+  // En un navegador funciona. En jsdom, getContext('2d') devuelve null
+  // y la línea siguiente revienta.
+  const contexto = lienzo.value.getContext('2d')
+  contexto.fillRect(0, 0, 200, 40)
+})
+&lt;/script&gt;
+
+&lt;template&gt;
+  &lt;canvas ref="lienzo" data-test="etiqueta" width="200" height="40"&gt;&lt;/canvas&gt;
+&lt;/template&gt;</code></pre>
+
+  <span class="file">src/componentes/TarjetaPedido.vue</span>
+<pre><code>&lt;script setup&gt;
+import { computed } from 'vue'
+import EtiquetaTermica from './EtiquetaTermica.vue'
+
+const props = defineProps({
+  pedido: { type: Array,  default: () =&gt; [] },
+  mesa:   { type: Number, required: true }
+})
+
+const total = computed(() =&gt;
+  props.pedido.reduce((suma, item) =&gt; suma + item.precio * item.cantidad, 0)
+)
+&lt;/script&gt;
+
+&lt;template&gt;
+  &lt;article class="tarjeta" data-test="tarjeta"&gt;
+    &lt;h3 data-test="mesa"&gt;Mesa {{ mesa }}&lt;/h3&gt;
+    &lt;p data-test="lineas"&gt;{{ pedido.length }} productos&lt;/p&gt;
+    &lt;p data-test="total"&gt;{{ total }}&lt;/p&gt;
+
+    &lt;EtiquetaTermica :pedido="pedido" /&gt;
+
+    &lt;slot name="acciones" /&gt;
+  &lt;/article&gt;
+&lt;/template&gt;</code></pre>
+
+  <span class="file">src/componentes/MesonView.vue</span>
+<pre><code>&lt;script setup&gt;
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import { obtenerCatalogo, enviarPedido } from '@/servicios/pedidosApi.js'
+import { telemetria } from '@/servicios/telemetria.js'
+import BotonProducto from './BotonProducto.vue'
+import EtiquetaTermica from './EtiquetaTermica.vue'
+
+const catalogo = ref([])
+const pedido = ref([])
+const cargando = ref(false)
+const error = ref('')
+const busqueda = ref('')
+const enviando = ref(false)
+
+let temporizador
+const router = useRouter()
+
+const visibles = computed(() =&gt;
+  catalogo.value.filter(p =&gt;
+    p.nombre.toLowerCase().includes(busqueda.value.trim().toLowerCase())
+  )
+)
+
+const total = computed(() =&gt;
+  pedido.value.reduce((suma, item) =&gt; suma + item.precio * item.cantidad, 0)
+)
+
+async function cargar() {
+  cargando.value = true
+  error.value = ''
+  try {
+    catalogo.value = await obtenerCatalogo()
+  } catch {
+    error.value = 'No pudimos cargar el catálogo. Intenta nuevamente en unos segundos.'
+  } finally {
+    cargando.value = false
+  }
+}
+
+function agregar(producto) {
+  const existente = pedido.value.find(item =&gt; item.codigo === producto.codigo)
+
+  pedido.value = existente
+    ? pedido.value.map(item =&gt;
+        item.codigo === producto.codigo ? { ...item, cantidad: item.cantidad + 1 } : item
+      )
+    : [...pedido.value, { ...producto, cantidad: 1 }]
+
+  telemetria.registrar('producto_agregado', { codigo: producto.codigo })
+}
+
+async function enviar() {
+  enviando.value = true
+
+  const boleta = await enviarPedido(pedido.value)
+
+  telemetria.registrar('pedido_enviado', { total: total.value })
+  pedido.value = []
+  enviando.value = false
+
+  router.push({ name: 'boleta', params: { id: boleta.id } })
+}
+
+// La última búsqueda se guarda con retardo: escribir en localStorage
+// en cada tecla es caro y no aporta nada.
+watch(busqueda, (texto) =&gt; {
+  clearTimeout(temporizador)
+  temporizador = setTimeout(() =&gt; {
+    localStorage.setItem('ultima-busqueda', texto)
+  }, 600)
+})
+
+onMounted(cargar)
+&lt;/script&gt;
+
+&lt;template&gt;
+  &lt;section class="meson"&gt;
+    &lt;label for="busqueda" class="visually-hidden"&gt;Buscar producto&lt;/label&gt;
+    &lt;input id="busqueda" data-test="busqueda" v-model="busqueda" type="search" placeholder="Buscar producto"&gt;
+
+    &lt;p v-if="cargando" data-test="cargando"&gt;Cargando el catálogo…&lt;/p&gt;
+
+    &lt;div v-else-if="error" data-test="error" role="alert"&gt;
+      &lt;p&gt;{{ error }}&lt;/p&gt;
+      &lt;button type="button" data-test="reintentar" @click="cargar"&gt;Reintentar&lt;/button&gt;
+    &lt;/div&gt;
+
+    &lt;template v-else&gt;
+      &lt;p v-if="!visibles.length" data-test="sin-resultados"&gt;
+        Ningún producto coincide con la búsqueda.
+      &lt;/p&gt;
+
+      &lt;BotonProducto
+        v-for="producto in visibles"
+        :key="producto.codigo"
+        :producto="producto"
+        :al-agregar="agregar"
+      /&gt;
+
+      &lt;p data-test="total"&gt;{{ total }}&lt;/p&gt;
+
+      &lt;EtiquetaTermica :pedido="pedido" /&gt;
+
+      &lt;button
+        data-test="enviar"
+        type="button"
+        :disabled="!pedido.length"
+        @click="enviar"
+      &gt;
+        Enviar pedido
+      &lt;/button&gt;
+    &lt;/template&gt;
+  &lt;/section&gt;
+&lt;/template&gt;</code></pre>
+
+  <h3>Paso 6 — El test de ejemplo, resuelto</h3>
+
+  <p>
+    Éste es el único test que te entrego escrito. Es el molde de todo lo demás: fíjate en el
+    <code>vi.fn()</code>, en el <code>await</code> del <code>trigger</code> y en cómo se afirma sobre
+    el espía.
+  </p>
+
+  <span class="file">tests/componentes/ejemplo.test.js</span>
+<pre><code>import { describe, it, expect, vi } from 'vitest'
+import { mount } from '@vue/test-utils'
+import BotonProducto from '@/componentes/BotonProducto.vue'
+
+const CAFE = { codigo: 'BEB-01', nombre: 'Café americano', precio: 1500 }
+
+describe('BotonProducto — ejemplo resuelto', () =&gt; {
+
+  it('muestra el nombre del producto que recibe', () =&gt; {
+    const wrapper = mount(BotonProducto, {
+      props: { producto: CAFE, alAgregar: vi.fn() }
+    })
+
+    expect(wrapper.get('[data-test="nombre"]').text()).toBe('Café americano')
+  })
+
+  it('avisa al padre cuando lo tocan', async () =&gt; {
+    // Arrange — el espía: una función vacía que anota todo lo que recibe
+    const alAgregar = vi.fn()
+    const wrapper = mount(BotonProducto, { props: { producto: CAFE, alAgregar } })
+
+    // Act — el await no es opcional: Vue actualiza el DOM de forma asíncrona
+    await wrapper.get('[data-test="producto-BEB-01"]').trigger('click')
+
+    // Assert — el espía sabe cuántas veces lo llamaron y con qué
+    expect(alAgregar).toHaveBeenCalledTimes(1)
+    expect(alAgregar).toHaveBeenCalledWith(CAFE)
+  })
+})</code></pre>
+
+  <span class="file file--term">Terminal</span>
+<pre><code>npm run test:run
+
+ ✓ tests/componentes/ejemplo.test.js (2 tests) 38ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)</code></pre>
+
+  <h3>El torpedo: qué doble para qué dependencia</h3>
+
+  <div class="tabla-scroll">
+    <table>
+      <thead><tr><th>Doble</th><th>Herramienta</th><th>Úsalo cuando…</th><th>Requisito</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>Ninguno</strong></td>
+          <td><code>emitted()</code></td>
+          <td>Quieres ver qué <em>eventos</em> emitió el componente. Vue Test Utils ya los registra: no hace falta doble.</td>
+          <td>R1</td>
+        </tr>
+        <tr>
+          <td><strong>Spy propio</strong></td>
+          <td><code>vi.fn()</code></td>
+          <td>La función te la pide el componente (por props, por <code>provide</code>). La creas tú.</td>
+          <td>R2</td>
+        </tr>
+        <tr>
+          <td><strong>Spy sobre lo existente</strong></td>
+          <td><code>vi.spyOn(obj, 'm')</code></td>
+          <td>Quieres <em>mirar</em> un método que ya existe. <strong>El original se sigue ejecutando.</strong></td>
+          <td>R3</td>
+        </tr>
+        <tr>
+          <td><strong>Stub de función</strong></td>
+          <td><code>.mockResolvedValue()</code> y compañía</td>
+          <td>Necesitas <em>controlar la respuesta</em> para forzar una situación.</td>
+          <td>R4</td>
+        </tr>
+        <tr>
+          <td><strong>Stub de componente</strong></td>
+          <td><code>global.stubs</code></td>
+          <td>Un <em>hijo</em> estorba: usa canvas, pide datos o es de terceros.</td>
+          <td>R5</td>
+        </tr>
+        <tr>
+          <td><strong>Mock de módulo</strong></td>
+          <td><code>vi.mock('ruta')</code></td>
+          <td>El módulo completo no debe ni cargarse: axios, el router, un SDK.</td>
+          <td>R6</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="check">
+    <h4>Antes de seguir al Requisito 1</h4>
+    <ul>
+      <li>Los siete archivos de <code>src/</code> están pegados sin modificar.</li>
+      <li><code>npm run test:run</code> termina en verde con 2 tests.</li>
+      <li>Entiendes por qué acá sí hace falta <code>jsdom</code> y en la actividad anterior no.</li>
+      <li>Tienes clara la diferencia entre <code>ContadorLinea</code>, que avisa con <strong>eventos</strong>, y <code>BotonProducto</code>, que recibe un <strong>callback</strong>. De ahí sale la primera decisión de la actividad.</li>
+      <li>Leíste <code>MesonView.vue</code> completo. <strong>Completo.</strong></li>
+    </ul>
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<section class="ejercicio" id="ej1">
+  <h2>Requisito 1 — Montar, mirar e interactuar</h2>
+  <p class="meta"><strong>Entregable:</strong> <code>tests/componentes/ContadorLinea.test.js</code> · <strong>Sin ningún doble todavía</strong> · <strong>6 casos.</strong></p>
+
+  <h3>Qué se necesita</h3>
+
+  <div class="nota">
+    <strong>Este requisito no lleva <code>vi</code> por ninguna parte. A propósito.</strong>
+    <p>
+      Antes de reemplazar dependencias hay que saber <strong>montar un componente y hacerle
+      preguntas</strong>: leer lo que pinta, tocarlo, cambiarle las props y revisar qué eventos emitió.
+      Eso lo hace <code>@vue/test-utils</code> solo, sin ayuda de nadie.
+    </p>
+    <p>
+      Si esto no está firme, los cinco requisitos siguientes se convierten en copiar y pegar. Empieza
+      por acá aunque te parezca lo más fácil del documento.
+    </p>
+  </div>
+
+  <p>
+    <code>ContadorLinea</code> es el <code>+ / −</code> de cada línea del pedido. Recibe el
+    <code>item</code> por props y <strong>avisa con eventos</strong>, no con callbacks. Esa diferencia
+    con <code>BotonProducto</code> es justamente la que decide cómo se prueba cada uno.
+  </p>
+
+  <div class="tabla-scroll">
+    <table>
+      <thead><tr><th>#</th><th>Situación</th><th>Qué tienes que comprobar</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>1</td><td>Se monta con un café de <code>$1.500</code> y cantidad <code>2</code></td>
+          <td>Se ven el nombre, la cantidad <code>2</code> y el subtotal <code>3000</code></td>
+        </tr>
+        <tr>
+          <td>2</td><td>Clic en el botón <code>+</code></td>
+          <td>Emite <code>cambiar</code> <strong>una vez</strong>, con <code>{ codigo: 'BEB-01', cantidad: 3 }</code></td>
+        </tr>
+        <tr>
+          <td>3</td><td>Clic en <code>−</code> con cantidad <code>2</code></td>
+          <td>Emite <code>cambiar</code> con cantidad <code>1</code>, y <strong>no</strong> emite <code>quitar</code></td>
+        </tr>
+        <tr>
+          <td>4</td><td>Clic en <code>−</code> con cantidad <code>1</code></td>
+          <td>Emite <code>quitar</code> con el <strong>código</strong> del producto, y <strong>no</strong> emite <code>cambiar</code></td>
+        </tr>
+        <tr>
+          <td>5</td><td>La cantidad ya llegó al <code>maximo</code></td>
+          <td>El botón <code>+</code> está deshabilitado y <strong>no se emite nada</strong></td>
+        </tr>
+        <tr>
+          <td>6</td><td>El padre cambia las props: la cantidad pasa a <code>4</code></td>
+          <td>El subtotal en pantalla pasa a <code>6000</code></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Los datos con los que trabajas</h3>
+
+  <span class="file file--maqueta">Línea de prueba</span>
+<pre><code>{ codigo: 'BEB-01', nombre: 'Café americano', precio: 1500, cantidad: 2 }
+
+// subtotal con cantidad 2  →  3000
+// subtotal con cantidad 4  →  6000
+// maximo por defecto       →  9</code></pre>
+
+  <h3>Las cuatro herramientas que necesitas</h3>
+
+  <div class="tabla-scroll">
+    <table>
+      <thead><tr><th>Para…</th><th>Se usa</th><th>Ojo con…</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Buscar algo que <strong>debe</strong> existir</td>
+          <td><code>wrapper.get('[data-test="…"]')</code></td>
+          <td>Si no está, lanza un error claro. Es el que usarás casi siempre</td>
+        </tr>
+        <tr>
+          <td>Comprobar que algo <strong>no</strong> existe</td>
+          <td><code>wrapper.find('…').exists()</code></td>
+          <td><code>expect(wrapper.find('…')).toBe(false)</code> compara un wrapper con un booleano: nunca pasa</td>
+        </tr>
+        <tr>
+          <td>Interactuar</td>
+          <td><code>await …trigger('click')</code></td>
+          <td>El <code>await</code> <strong>no es opcional</strong></td>
+        </tr>
+        <tr>
+          <td>Ver qué eventos emitió</td>
+          <td><code>wrapper.emitted('cambiar')</code></td>
+          <td>Devuelve <code>undefined</code> si nunca se emitió</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Cómo se lee <code>emitted()</code></h3>
+
+  <span class="file file--maqueta">Anatomía del registro de eventos</span>
+<pre><code>// Después de un clic en "+", esto es lo que hay dentro del wrapper:
+
+wrapper.emitted()
+// { cambiar: [ [ { codigo: 'BEB-01', cantidad: 3 } ] ] }
+
+wrapper.emitted('cambiar')
+// [ [ { codigo: 'BEB-01', cantidad: 3 } ] ]   ← una entrada por cada emisión
+
+wrapper.emitted('cambiar')[0]
+// [ { codigo: 'BEB-01', cantidad: 3 } ]       ← los ARGUMENTOS de la 1ª emisión
+
+wrapper.emitted('cambiar')[0][0]
+// { codigo: 'BEB-01', cantidad: 3 }           ← el primer argumento
+
+wrapper.emitted('quitar')
+// undefined                                    ← nunca se emitió</code></pre>
+
+  <div class="ojo">
+    <strong>Los dos corchetes confunden a todo el mundo la primera vez.</strong>
+    <p>
+      El primero es <em>cuál emisión</em> (un componente puede emitir el mismo evento varias veces). El
+      segundo es <em>cuál argumento</em> (un <code>emit</code> puede llevar varios). Por eso
+      <code>[0][0]</code> significa «el primer argumento de la primera emisión».
+    </p>
+    <p>
+      Tú decides cuál de las dos formas usas en cada caso. Las dos son válidas; lo que no es válido es
+      escribirlas al azar hasta que el test pase.
+    </p>
+  </div>
+
+  <div class="alto">
+    <strong>Acá no se usa <code>vi.fn()</code>. Y es importante que entiendas por qué.</strong>
+    <p>
+      Vue Test Utils <strong>ya registra todas las emisiones</strong> por su cuenta:
+      <code>emitted()</code> es un espía que viene puesto de fábrica. Montar un <code>vi.fn()</code>
+      para vigilar un <code>emit</code> es levantar una máquina que ya estaba andando.
+    </p>
+    <p>
+      La regla que se evalúa en toda la actividad: <strong><code>vi.fn()</code> es para
+      <em>callbacks</em></strong> —funciones que el componente recibe y llama—, y
+      <strong><code>emitted()</code> es para <em>eventos</em></strong>. Confundirlos es el error de
+      criterio más común de esta unidad.
+    </p>
+  </div>
+
+  <h3>Criterios de aceptación</h3>
+
+  <div class="check">
+    <h4>Se revisa esto, uno por uno</h4>
+    <ul>
+      <li>En este archivo <strong>no aparece <code>vi</code> ni una sola vez</strong>. Ni <code>vi.fn</code>, ni <code>vi.mock</code>, ni <code>vi.spyOn</code>.</li>
+      <li>Hay una <strong>fábrica de montaje</strong>: una función que monta el contador y deja que cada test cambie sólo lo que le importa.</li>
+      <li>Todos los <code>trigger</code> y el <code>setProps</code> llevan <code>await</code>.</li>
+      <li>Los casos 3 y 4 comprueban <strong>las dos cosas</strong>: el evento que sí salió y el que no. Para el que no, <code>toBeUndefined()</code>.</li>
+      <li>El caso 2 compara los argumentos del evento con <code>toEqual</code>, porque son un objeto.</li>
+      <li>El caso 5 comprueba el atributo <code>disabled</code> <strong>y</strong> que no se emitió nada.</li>
+      <li>El caso 6 usa <code>setProps</code> y vuelve a leer el DOM después.</li>
+      <li>Buscas por <code>data-test</code>, nunca por clase CSS ni por posición (<code>findAll('button')[1]</code>).</li>
+    </ul>
+  </div>
+
+  <div class="nota">
+    <strong>Por qué el caso 4 vale por tres.</strong>
+    <p>
+      «Bajar de 1 saca la línea» es una regla de negocio de verdad, de esas que alguien decidió en una
+      reunión. Está a una línea de distancia de su alternativa —dejar la cantidad en cero y una línea
+      fantasma en el pedido— y no se ve en ninguna parte de la interfaz.
+    </p>
+    <p>
+      Tu test es el único lugar del proyecto donde esa decisión queda escrita.
+    </p>
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<section class="ejercicio" id="ej2">
+  <h2>Requisito 2 — El espía que tú entregas</h2>
+  <p class="meta"><strong>Entregable:</strong> <code>tests/componentes/BotonProducto.test.js</code> · <strong>Doble:</strong> <code>vi.fn()</code> · <strong>5 casos.</strong></p>
+
+  <h3>Qué se necesita</h3>
+
+  <p>
+    <code>BotonProducto</code> recibe la función <code>alAgregar</code> <strong>por props</strong>. No
+    hay nada que interceptar: la función se la entregas tú al montar. Ése es el caso de
+    <code>vi.fn()</code>, el espía más simple que existe.
+  </p>
+
+  <div class="tabla-scroll">
+    <table>
+      <thead><tr><th>#</th><th>Situación</th><th>Qué tienes que comprobar</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>Un clic en el botón</td><td>El callback se llamó <strong>exactamente una vez</strong></td></tr>
+        <tr><td>2</td><td>Ese mismo clic</td><td>Se llamó con el <strong>objeto producto completo</strong>, no con el código ni con el nombre</td></tr>
+        <tr><td>3</td><td>Tres clics seguidos</td><td>Tres llamadas, y la <strong>última</strong> también trae el producto</td></tr>
+        <tr><td>4</td><td>El producto está <code>agotado</code></td><td>El botón está deshabilitado y el callback <strong>no se llama nunca</strong></td></tr>
+        <tr><td>5</td><td>Se monta el componente y no se toca nada</td><td>El callback <strong>no se llamó</strong></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Los datos con los que trabajas</h3>
+
+  <span class="file file--maqueta">Producto de prueba</span>
+<pre><code>{ codigo: 'SNK-01', nombre: 'Empanada de pino', precio: 2500 }</code></pre>
+
+  <div class="ojo">
+    <strong>El caso 5 parece tonto y es el más importante de los cinco.</strong>
+    <p>
+      Comprobar que algo <em>no</em> pasó vale tanto como comprobar que pasó. Un componente que llama
+      al callback durante el <code>onMounted</code>, o dos veces por cada clic, es un error real que
+      sólo se detecta con <code>not.toHaveBeenCalled()</code> y con
+      <code>toHaveBeenCalledTimes()</code>.
+    </p>
+  </div>
+
+  <div class="ojo">
+    <strong>Pista sobre el caso 4.</strong>
+    <p>
+      Un botón con <code>disabled</code> no dispara <code>click</code> en un navegador real, pero
+      <strong>en jsdom la cosa es más sutil</strong>. No des por hecho el resultado: escribe el test,
+      córrelo, y comprueba <em>las dos</em> cosas — que el atributo está y que el espía no se llamó.
+      Si te sorprende lo que pasa, anótalo en el README: es exactamente el tipo de detalle que hay que
+      saber.
+    </p>
+  </div>
+
+  <h3>Criterios de aceptación</h3>
+
+  <div class="check">
+    <h4>Se revisa esto, uno por uno</h4>
+    <ul>
+      <li>Usas <code>vi.fn()</code>. <strong>No</strong> usas <code>vi.mock</code> ni <code>vi.spyOn</code> en este archivo: acá sobran.</li>
+      <li>Cada <code>it</code> crea <strong>su propio</strong> <code>vi.fn()</code>. No hay un espía compartido entre tests.</li>
+      <li>El caso 2 usa <code>toHaveBeenCalledWith</code> con el objeto completo.</li>
+      <li>El caso 3 usa <code>toHaveBeenCalledTimes(3)</code> y <code>toHaveBeenLastCalledWith</code>.</li>
+      <li>El caso 5 usa <code>not.toHaveBeenCalled()</code>.</li>
+      <li>Todos los <code>trigger</code> llevan <code>await</code>.</li>
+      <li>Buscas por <code>data-test</code>, nunca por clase CSS.</li>
+    </ul>
+  </div>
+
+  <div class="alto">
+    <strong>El error silencioso que te va a costar puntos:</strong>
+    <code>expect(alAgregar).toHaveBeenCalled</code> — <strong>sin paréntesis</strong>. No ejecuta nada
+    y el test pasa siempre, aunque el espía jamás se haya llamado. Un test que nunca falla es peor que
+    no tener test.
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<section class="ejercicio" id="ej3">
+  <h2>Requisito 3 — El efecto invisible</h2>
+  <p class="meta"><strong>Entregable:</strong> <code>tests/dominio/caja.test.js</code> · <strong>Doble:</strong> <code>vi.spyOn()</code> · <strong>5 casos.</strong></p>
+
+  <h3>Qué se necesita</h3>
+
+  <p>
+    <code>cerrarCaja(pedidos)</code> hace dos cosas: devuelve un resumen —eso se ve— y registra en
+    telemetría —eso <strong>no se ve por ninguna parte</strong>. El segundo efecto es tan parte del
+    contrato como el primero, y sin un espía no hay forma de comprobarlo.
+  </p>
+
+  <p>
+    Acá <code>telemetria</code> se importa dentro del módulo: no te la pasan. Por eso
+    <code>vi.fn()</code> no sirve y toca <code>vi.spyOn</code>.
+  </p>
+
+  <div class="tabla-scroll">
+    <table>
+      <thead><tr><th>#</th><th>Situación</th><th>Qué tienes que comprobar</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>1</td><td>Dos pedidos: <code>[{total: 5500}, {total: 1200}]</code></td>
+          <td>Devuelve <code>{ pedidos: 2, total: 6700 }</code></td>
+        </tr>
+        <tr>
+          <td>2</td><td>Los mismos dos pedidos</td>
+          <td>Se llamó a <code>telemetria.registrar</code> <strong>una vez</strong>, con
+              <code>'caja_cerrada'</code> y <code>{ pedidos: 2, total: 6700 }</code></td>
+        </tr>
+        <tr>
+          <td>3</td><td><strong>Caja vacía</strong>: <code>[]</code></td>
+          <td>Devuelve <code>{ pedidos: 0, total: 0 }</code> y <strong>registra igual</strong>: cerrar una caja sin ventas también es un cierre</td>
+        </tr>
+        <tr>
+          <td>4</td><td>Un solo pedido</td>
+          <td>El primer argumento del registro es exactamente el texto <code>'caja_cerrada'</code>. Léelo desde <code>mock.calls</code>, no con <code>toHaveBeenCalledWith</code></td>
+        </tr>
+        <tr>
+          <td>5</td><td>Se cierra la caja tres veces seguidas</td>
+          <td>Tres registros, y el <strong>tercero</strong> corresponde a la tercera caja</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="alto">
+    <strong>Corre este archivo dos veces: una sin silenciar y otra silenciando.</strong>
+    <p>
+      <code>vi.spyOn(telemetria, 'registrar')</code> deja pasar la llamada original, así que tu salida
+      de tests se va a llenar de líneas <code>[telemetría] caja_cerrada …</code>. Míralo. Ésa es la
+      prueba visible de que <strong>un spy no bloquea nada</strong>.
+    </p>
+    <p>
+      Después encadénale <code>.mockImplementation(() =&gt; {})</code> y vuelve a correr: la salida
+      queda limpia. <strong>En ese momento tu spy dejó de ser un spy y pasó a ser un stub.</strong>
+      Explica esa diferencia en el README, en dos líneas.
+    </p>
+  </div>
+
+  <h3>Criterios de aceptación</h3>
+
+  <div class="check">
+    <h4>Se revisa esto, uno por uno</h4>
+    <ul>
+      <li>Usas <code>vi.spyOn(telemetria, 'registrar')</code>. No falsificas el módulo con <code>vi.mock</code>: acá es matar una mosca a cañonazos.</li>
+      <li>Hay limpieza entre tests: <code>restoreMocks: true</code> en el config, o <code>vi.restoreAllMocks()</code> en un <code>afterEach</code>.</li>
+      <li>El caso 3 comprueba <strong>las dos cosas</strong>: lo que devuelve y que registró igual.</li>
+      <li>El caso 4 lee <code>espia.mock.calls[0][0]</code>, para que demuestres que sabes leer el registro a mano.</li>
+      <li>El caso 5 usa <code>toHaveBeenCalledTimes(3)</code> y <code>toHaveBeenLastCalledWith</code>.</li>
+      <li>Ningún test depende de las llamadas que dejó el anterior. Compruébalo corriendo uno solo con <code>it.only</code>.</li>
+      <li>En el README explicas, en dos líneas, la diferencia entre spy y stub que viste en pantalla.</li>
+    </ul>
+  </div>
+
+  <div class="nota">
+    <strong>Por qué la limpieza no es opcional.</strong>
+    <p>
+      Un espía instalado sobre <code>telemetria.registrar</code> <strong>sigue instalado</strong>
+      cuando termina el test. Si no limpias, el siguiente hereda el historial y tu
+      <code>toHaveBeenCalledTimes(1)</code> falla diciendo que hubo cuatro. Vas a revisar el test
+      equivocado durante veinte minutos.
+    </p>
+    <p>
+      <code>clear</code> borra el historial · <code>reset</code> borra además la implementación falsa ·
+      <code>restore</code> devuelve el método original. <strong>Sólo <code>restore</code> funciona con
+      <code>vi.spyOn</code>.</strong>
+    </p>
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<section class="ejercicio" id="ej4">
+  <h2>Requisito 4 — Dictar la respuesta</h2>
+  <p class="meta"><strong>Entregable:</strong> <code>tests/dominio/cobro.test.js</code> · <strong>Doble:</strong> stubs de función · <strong>6 casos.</strong></p>
+
+  <h3>Qué se necesita</h3>
+
+  <p>
+    <code>cobrar(pedido, pasarela)</code> le pega a una pasarela de pago. Contra la pasarela real esto
+    sería imposible de probar: no puedes pedirle que rechace una tarjeta a voluntad, ni que se caiga
+    justo cuando tú quieres.
+  </p>
+
+  <p>
+    Pero la pasarela <strong>llega como parámetro</strong>. Eso significa que tú decides qué responde.
+    Ahí es donde el spy se convierte en <strong>stub</strong>: no sólo mira, también contesta.
+  </p>
+
+  <div class="tabla-scroll">
+    <table>
+      <thead><tr><th>#</th><th>Qué responde la pasarela</th><th>Qué tiene que devolver <code>cobrar</code></th></tr></thead>
+      <tbody>
+        <tr>
+          <td>1</td><td><code>{ aprobado: true, codigo: 'TRX-9' }</code></td>
+          <td><code>{ estado: 'pagado', codigo: 'TRX-9' }</code></td>
+        </tr>
+        <tr>
+          <td>2</td><td><code>{ aprobado: false, motivo: 'Fondos insuficientes' }</code></td>
+          <td><code>{ estado: 'rechazado', motivo: 'Fondos insuficientes' }</code></td>
+        </tr>
+        <tr>
+          <td>3</td><td>Cualquiera</td>
+          <td>Se llamó a <code>pagar</code> <strong>una vez y con el monto del pedido</strong>, no con el pedido entero</td>
+        </tr>
+        <tr>
+          <td>4</td><td>La pasarela <strong>se cae</strong>: la promesa se rechaza con <code>'Timeout de la pasarela'</code></td>
+          <td><code>cobrar</code> propaga el error. Se comprueba con <code>rejects</code></td>
+        </tr>
+        <tr>
+          <td>5</td><td>El pedido tiene <code>total: 0</code></td>
+          <td>Lanza <code>'El pedido está vacío'</code> <strong>y a <code>pagar</code> no se le llama nunca</strong></td>
+        </tr>
+        <tr>
+          <td>6</td><td><strong>El cliente reintenta:</strong> la primera vez rechaza, la segunda aprueba</td>
+          <td>Dos llamadas a <code>cobrar</code>: la primera devuelve <code>rechazado</code>, la segunda <code>pagado</code></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Cómo se arma la pasarela falsa</h3>
+
+  <span class="file file--maqueta">La forma del doble — el resto lo escribes tú</span>
+<pre><code>// La pasarela falsa es un objeto con un método espiado.
+// Lo que le dictes a ese método decide qué situación estás probando.
+const pasarela = { pagar: vi.fn() }
+
+// Y a partir de ahí:
+//   .mockResolvedValue(...)      → la promesa se resuelve, siempre igual
+//   .mockRejectedValue(...)      → la promesa se rechaza
+//   .mockResolvedValueOnce(...)  → sólo para la PRÓXIMA llamada
+//
+// El caso 6 se resuelve encadenando dos ...Once(). Piensa en qué orden.</code></pre>
+
+  <div class="alto">
+    <strong>El caso 5 es el que más gente escribe mal.</strong>
+    <p>
+      Tiene <strong>dos</strong> aserciones y las dos importan: que lanza el error, y que
+      <code>pagar</code> <em>no</em> se llamó. La segunda es la que de verdad protege al negocio: si
+      alguien mueve la validación después del <code>await</code>, estarías cobrando pedidos vacíos y
+      el test que sólo mira el mensaje de error ni se entera.
+    </p>
+    <p>
+      Y ojo con la sintaxis: <code>toThrow</code> recibe <strong>una función</strong>. Como
+      <code>cobrar</code> es <code>async</code>, va con
+      <code>await expect(cobrar(...)).rejects.toThrow('...')</code>.
+    </p>
+  </div>
+
+  <h3>Criterios de aceptación</h3>
+
+  <div class="check">
+    <h4>Se revisa esto, uno por uno</h4>
+    <ul>
+      <li>La pasarela falsa se crea con <code>vi.fn()</code>. <strong>No</strong> hay <code>vi.mock</code> en este archivo, y no hace falta ninguno.</li>
+      <li>Los seis casos están, cada uno en su <code>it</code>.</li>
+      <li>Los casos 1 y 2 usan <code>toEqual</code>, porque <code>cobrar</code> devuelve un objeto.</li>
+      <li>El caso 3 usa <code>toHaveBeenCalledWith(5500)</code> —el monto—, no el objeto pedido.</li>
+      <li>Los casos 4 y 5 usan <code>await expect(...).rejects.toThrow(...)</code>.</li>
+      <li>El caso 5 comprueba además <code>expect(pasarela.pagar).not.toHaveBeenCalled()</code>.</li>
+      <li>El caso 6 usa <code>mockResolvedValueOnce</code> encadenado, no dos pasarelas distintas.</li>
+      <li>Ningún test espera de verdad: la suite completa corre en milisegundos.</li>
+    </ul>
+  </div>
+
+  <div class="nota">
+    <strong>Por qué <code>cobrar</code> recibe la pasarela como parámetro.</strong>
+    <p>
+      Podría haberla importado, como hace <code>caja.js</code> con la telemetría. Pero entonces
+      probarla exigiría <code>vi.mock</code>. Al recibirla, basta con pasarle un objeto falso.
+    </p>
+    <p>
+      Eso se llama <strong>inyección de dependencias</strong>, y es una decisión de diseño que se toma
+      pensando en el test. Cuando algo es difícil de probar, casi nunca es culpa del test:
+      <strong>es una señal de que el diseño esconde sus dependencias.</strong>
+    </p>
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<section class="ejercicio" id="ej5">
+  <h2>Requisito 5 — El hijo que estorba</h2>
+  <p class="meta"><strong>Entregable:</strong> <code>tests/componentes/TarjetaPedido.test.js</code> · <strong>Doble:</strong> <code>global.stubs</code> · <strong>5 casos.</strong></p>
+
+  <h3>Qué se necesita</h3>
+
+  <p>
+    Empieza por hacer lo que no hay que hacer: monta <code>TarjetaPedido</code> tal cual, sin ninguna
+    opción, y corre el test. Vas a ver esto:
+  </p>
+
+  <span class="file file--term">Terminal — el error que tienes que provocar y leer</span>
+<pre><code>npm test
+
+ × TarjetaPedido &gt; muestra el número de mesa
+
+   TypeError: Cannot read properties of null (reading 'fillRect')
+    at EtiquetaTermica.vue:14
+                       ^^^^^^^^^^^^^^^^^^
+   El componente que falla NO es el que estás probando.</code></pre>
+
+  <div class="alto">
+    <strong>Léelo con calma: el error apunta a un componente que funciona perfecto en producción.</strong>
+    <p>
+      <code>EtiquetaTermica</code> dibuja en un <code>&lt;canvas&gt;</code>. En un navegador anda; en
+      jsdom, <code>getContext('2d')</code> devuelve <code>null</code>. El componente no está malo —
+      <strong>está fuera de lugar en un test unitario</strong>.
+    </p>
+    <p>
+      La solución no es arreglar la etiqueta. Es <strong>sacarla del camino</strong>: no es la unidad
+      que estás probando.
+    </p>
+  </div>
+
+  <div class="tabla-scroll">
+    <table>
+      <thead><tr><th>#</th><th>Situación</th><th>Qué tienes que comprobar</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>Se monta con <code>mesa: 4</code></td><td>El encabezado dice <code>Mesa 4</code></td></tr>
+        <tr><td>2</td><td>Un pedido de dos líneas</td><td>Muestra <code>2 productos</code> y el total <code>5500</code></td></tr>
+        <tr><td>3</td><td>Pedido <strong>vacío</strong></td><td>Muestra <code>0 productos</code> y total <code>0</code></td></tr>
+        <tr><td>4</td><td>El hijo stubeado</td><td>Existe en el árbol y <strong>recibió la prop <code>pedido</code> con las dos líneas</strong></td></tr>
+        <tr><td>5</td><td>Se monta pasándole el slot <code>acciones</code></td><td>El contenido del slot aparece en el HTML</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Los datos con los que trabajas</h3>
+
+  <span class="file file--maqueta">Pedido de prueba</span>
+<pre><code>[
+  { codigo: 'BEB-01', nombre: 'Café americano',   precio: 1500, cantidad: 2 },
+  { codigo: 'SNK-01', nombre: 'Empanada de pino', precio: 2500, cantidad: 1 }
+]
+
+// mesa: 4     ·     total esperado: 5500     ·     líneas: 2</code></pre>
+
+  <div class="ojo">
+    <strong>El caso 4 es el que te enseña para qué sirve de verdad un stub de componente.</strong>
+    <p>
+      Aunque el hijo no se ejecutó, <strong>el stub conserva sus props</strong>. Puedes comprobar el
+      contrato entre padre e hijo sin ejecutar al hijo. Búscalo con
+      <code>findComponent</code> y pregúntale por sus <code>props</code>.
+    </p>
+    <p>
+      Eso <em>no</em> es probar que la etiqueta dibuje bien —eso le toca al test de
+      <code>EtiquetaTermica</code>—. Es probar que <strong>el padre le entrega lo correcto</strong>.
+      Una responsabilidad, un test.
+    </p>
+  </div>
+
+  <div class="ojo">
+    <strong>Y el caso 5 tiene una trampa que se paga cara si no la conoces.</strong>
+    <p>
+      Prueba a resolver este requisito con <code>shallowMount</code> en vez de stubear sólo la
+      etiqueta. Corre el caso 5. <strong>El slot desaparece</strong> y no vas a entender por qué.
+    </p>
+    <p>
+      Cuando pase, investiga: la respuesta está en una opción de <code>global</code> cuyo nombre
+      empieza con <code>render</code>. Anótalo en el README junto con la razón por la que
+      <strong>no</strong> conviene usar <code>shallowMount</code> por costumbre.
+    </p>
+  </div>
+
+  <h3>Criterios de aceptación</h3>
+
+  <div class="check">
+    <h4>Se revisa esto, uno por uno</h4>
+    <ul>
+      <li>Stubeas <strong>sólo</strong> <code>EtiquetaTermica</code>, mediante <code>global.stubs</code>. No usas <code>shallowMount</code> en la solución final.</li>
+      <li>Hay una <strong>fábrica de montaje</strong>: una función que monta la tarjeta y deja que cada test cambie sólo lo que le importa.</li>
+      <li>El caso 4 usa <code>findComponent</code> y comprueba <code>props('pedido')</code> con <code>toEqual</code>.</li>
+      <li>El caso 5 pasa el slot por la opción <code>slots</code> de <code>mount</code>.</li>
+      <li>El caso 3 —pedido vacío— está. Sin él, este requisito no se aprueba.</li>
+      <li>Ningún test importa <code>EtiquetaTermica</code> para nada.</li>
+      <li>En el README explicas qué pasó con <code>shallowMount</code> y el slot.</li>
+    </ul>
+  </div>
+
+  <div class="nota">
+    <strong>La regla para decidir si stubear a un hijo.</strong>
+    <p>
+      Se stubea lo que <strong>estorba</strong>: canvas, mapas, peticiones propias, componentes de
+      terceros, <code>RouterLink</code>. <strong>No</strong> se stubea un botón o una tarjeta tuya sin
+      efectos: eso esconde errores reales de integración y no te ahorra nada.
+    </p>
+    <p>
+      Stubeas lo que te molesta, no lo que te da flojera.
+    </p>
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<section class="ejercicio" id="ej6">
+  <h2>Requisito 6 — El módulo entero</h2>
+  <p class="meta"><strong>Entregable:</strong> <code>tests/componentes/MesonView.test.js</code> · <strong>Doble:</strong> <code>vi.mock</code> · <strong>8 casos</strong> · <strong>Acá está el defecto.</strong></p>
+
+  <h3>Qué se necesita</h3>
+
+  <p>
+    <code>MesonView</code> tiene <strong>cinco</strong> dependencias externas y ninguna se puede
+    ejecutar en un test. Antes de escribir nada, completa mentalmente esta tabla: es la mitad de la
+    nota del requisito.
+  </p>
+
+  <div class="tabla-scroll">
+    <table>
+      <thead><tr><th>Dependencia</th><th>Por qué no se puede ejecutar</th><th>Qué doble le toca</th></tr></thead>
+      <tbody>
+        <tr><td><code>pedidosApi</code> (axios)</td><td>Saldría una petición de verdad</td><td>Decídelo tú</td></tr>
+        <tr><td><code>vue-router</code></td><td>No hay router instalado: <code>useRouter()</code> revienta</td><td>Decídelo tú</td></tr>
+        <tr><td><code>telemetria</code></td><td>Ensucia la salida, pero hay que verificarla</td><td>Decídelo tú</td></tr>
+        <tr><td><code>EtiquetaTermica</code></td><td>Canvas en jsdom</td><td>Decídelo tú</td></tr>
+        <tr><td>El <code>setTimeout</code> de 600 ms</td><td>Un test no puede esperar seis décimas</td><td>Decídelo tú</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="tabla-scroll">
+    <table>
+      <thead><tr><th>#</th><th>Situación</th><th>Qué tienes que comprobar</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>1</td><td>La API todavía no responde</td>
+          <td>Se ve el estado <strong>cargando</strong> y no se ve el error. Pista: una promesa que nunca se resuelve congela el componente donde tú quieras</td>
+        </tr>
+        <tr>
+          <td>2</td><td>La API devuelve los cuatro productos</td>
+          <td>Se pintan cuatro botones, y se llamó a <code>obtenerCatalogo</code> <strong>una sola vez</strong></td>
+        </tr>
+        <tr>
+          <td>3</td><td>La API <strong>falla</strong></td>
+          <td>Se ve un mensaje humano. <strong>El texto en pantalla no contiene «Network Error»</strong>, y el botón «Reintentar» vuelve a llamar al servicio</td>
+        </tr>
+        <tr>
+          <td>4</td><td>Se toca un producto</td>
+          <td>El total sube al precio de ese producto y se registró <code>'producto_agregado'</code> en telemetría con su código</td>
+        </tr>
+        <tr>
+          <td>5</td><td>Se toca <strong>dos veces</strong> el mismo producto</td>
+          <td>Sigue habiendo <strong>una sola línea</strong> en el pedido y el total es el doble</td>
+        </tr>
+        <tr>
+          <td>6</td><td>Se escribe en la búsqueda</td>
+          <td>La lista se filtra <strong>sin volver a llamar</strong> a <code>obtenerCatalogo</code>. Si no queda ninguno, aparece el aviso de «sin resultados»</td>
+        </tr>
+        <tr>
+          <td>7</td><td>Se escribe en la búsqueda y pasan 600 ms</td>
+          <td>Antes de los 600 ms <code>localStorage</code> está vacío; después, guarda el texto</td>
+        </tr>
+        <tr>
+          <td>8</td><td><strong>Se toca «Enviar pedido» dos veces seguidas</strong></td>
+          <td>Se llamó a <code>enviarPedido</code> <strong>una sola vez</strong></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>El catálogo que devuelve la API falsa</h3>
+
+  <span class="file file--maqueta">Respuesta de obtenerCatalogo()</span>
+<pre><code>[
+  { codigo: 'BEB-01', nombre: 'Café americano',   precio: 1500 },
+  { codigo: 'BEB-02', nombre: 'Café cortado',     precio: 1800 },
+  { codigo: 'SNK-01', nombre: 'Empanada de pino', precio: 2500 },
+  { codigo: 'DUL-01', nombre: 'Alfajor',          precio: 1200 }
+]
+
+// Respuesta de enviarPedido()  →  { id: 'B-77', folio: 77 }
+// Buscar 'café'   → quedan 2 botones
+// Buscar 'pizza'  → queda el aviso de sin resultados</code></pre>
+
+  <h3>Las tres trampas de este requisito</h3>
+
+  <div class="alto">
+    <strong>1. <code>vi.mock</code> se sube al inicio del archivo.</strong>
+    <p>
+      Vitest mueve todas las llamadas a <code>vi.mock</code> arriba de todo, antes de los
+      <code>import</code>. Por eso esto <strong>no funciona</strong>:
+    </p>
+  </div>
+
+  <div class="duo">
+    <div>
+      <span class="file file--mal">Lo que uno escribe por instinto</span>
+<pre><code>const empujar = vi.fn()
+
+vi.mock('vue-router', () =&gt; ({
+  useRouter: () =&gt; ({ push: empujar })
+}))
+
+// ReferenceError: Cannot access
+// 'empujar' before initialization</code></pre>
+    </div>
+    <div>
+      <span class="file file--maqueta">La forma correcta — complétala tú</span>
+<pre><code>// Existe una función de Vitest que sube
+// JUNTO con vi.mock, y por eso su valor
+// ya está disponible cuando la fábrica
+// se ejecuta.
+//
+// Su nombre tiene que ver con "subir".
+// Búscala y úsala.</code></pre>
+    </div>
+  </div>
+
+  <div class="alto">
+    <strong>2. <code>flushPromises()</code> con temporizadores falsos se cuelga.</strong>
+    <p>
+      <code>flushPromises</code> se apoya en un <code>setTimeout</code>. Si ya congelaste el reloj, ese
+      temporizador no se dispara nunca y tu test se queda esperando hasta que Vitest lo mate, con un
+      mensaje que no ayuda en nada.
+    </p>
+    <p>
+      En el caso 7 vas a necesitar las dos cosas. <strong>El orden importa</strong>: piensa en qué
+      momento exacto conviene congelar el reloj, y no olvides descongelarlo al terminar.
+    </p>
+  </div>
+
+  <div class="alto">
+    <strong>3. El caso 8 se va a poner rojo. Ése es el defecto.</strong>
+    <p>
+      Cuando pase: <strong>no toques el test</strong>. Vuelve a <code>MesonView.vue</code>, busca la
+      variable que se declara, se asigna y no la usa nadie, y entiende qué protección quedó a medias.
+    </p>
+    <p>
+      Arregla el componente. Vuelve a correr la suite completa: si arreglaste bien, los ocho pasan y no
+      se rompe ningún otro requisito.
+    </p>
+    <p>
+      Y piensa qué significa este defecto en el mundo real: <strong>un cliente al que le llegan dos
+      boletas y un cobro doble</strong>, porque el cajero tocó la pantalla dos veces.
+    </p>
+  </div>
+
+  <h3>Criterios de aceptación</h3>
+
+  <div class="check">
+    <h4>Se revisa esto, uno por uno</h4>
+    <ul>
+      <li>Los ocho casos están, cada uno en su <code>it</code>.</li>
+      <li><code>pedidosApi</code> y <code>vue-router</code> se falsifican con <code>vi.mock</code>, en el <strong>nivel superior</strong> del archivo — nunca dentro de un <code>describe</code>.</li>
+      <li>La referencia compartida del <code>push</code> del router usa la función de Vitest que sube junto con <code>vi.mock</code>.</li>
+      <li><code>EtiquetaTermica</code> se neutraliza con <code>global.stubs</code>, no con <code>vi.mock</code>.</li>
+      <li><code>telemetria</code> se vigila con <code>vi.spyOn</code>, no con <code>vi.mock</code>: el módulo entero no estorba, sólo su ruido.</li>
+      <li>Hay un <code>beforeEach</code> que limpia mocks y <code>localStorage</code>.</li>
+      <li>El caso 3 comprueba que el texto en pantalla <strong>no</strong> contiene el error técnico.</li>
+      <li>El caso 6 comprueba <code>toHaveBeenCalledTimes(1)</code>: filtrar no es recargar.</li>
+      <li>El caso 7 usa temporizadores falsos y los devuelve a la normalidad al terminar.</li>
+      <li><strong>Encontraste el defecto, lo arreglaste en el componente y lo documentaste:</strong> qué variable estaba de adorno, qué pasaba por eso, y cómo lo arreglaste.</li>
+      <li>Ningún test ejecuta una petición real ni espera de verdad. La suite completa corre en menos de dos segundos.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<section class="ejercicio" id="cierre">
+  <h2>Cierre</h2>
+
+  <h3>Qué entregas</h3>
+
+  <div class="tabla-scroll">
+    <table>
+      <thead><tr><th>Archivo</th><th>Doble principal</th><th>Casos</th></tr></thead>
+      <tbody>
+        <tr><td><code>tests/componentes/ejemplo.test.js</code></td><td>El que te dimos</td><td>2</td></tr>
+        <tr><td><code>tests/componentes/ContadorLinea.test.js</code></td><td>Ninguno — <code>emitted()</code></td><td>6</td></tr>
+        <tr><td><code>tests/componentes/BotonProducto.test.js</code></td><td><code>vi.fn()</code></td><td>5</td></tr>
+        <tr><td><code>tests/dominio/caja.test.js</code></td><td><code>vi.spyOn()</code></td><td>5</td></tr>
+        <tr><td><code>tests/dominio/cobro.test.js</code></td><td>Stubs de función</td><td>6</td></tr>
+        <tr><td><code>tests/componentes/TarjetaPedido.test.js</code></td><td><code>global.stubs</code></td><td>5</td></tr>
+        <tr><td><code>tests/componentes/MesonView.test.js</code></td><td><code>vi.mock</code> + todos</td><td>8</td></tr>
+        <tr><td><code>src/componentes/MesonView.vue</code></td><td><strong>Con el defecto arreglado</strong></td><td>—</td></tr>
+        <tr><td><code>README.md</code></td><td>Los cuatro hallazgos</td><td>—</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="nota">
+    <strong>Lo que tiene que decir el README. Cuatro puntos, dos líneas cada uno.</strong>
+    <ol style="margin-bottom:0">
+      <li>Qué pasó en el <strong>R2</strong> con el botón deshabilitado en jsdom.</li>
+      <li>La diferencia entre spy y stub que <strong>viste en pantalla</strong> en el R3.</li>
+      <li>Qué pasó en el <strong>R5</strong> con <code>shallowMount</code> y el slot.</li>
+      <li>El <strong>defecto del R6</strong>: qué variable estaba de adorno, qué provocaba, cómo lo arreglaste y cuál de tus tests lo delató.</li>
+    </ol>
+  </div>
+
+  <h3>Cómo se revisa tu entrega</h3>
+
+  <div class="tabla-scroll">
+    <table>
+      <thead><tr><th>#</th><th>Comprobación</th><th>Cómo se hace</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>La suite completa pasa en verde</td><td><code>npm run test:run</code>: 37 tests, 0 fallos</td></tr>
+        <tr><td>2</td><td>El defecto está arreglado en el componente, no tapado en el test</td><td>Leer <code>enviar()</code> y el <code>:disabled</code> del botón en <code>MesonView.vue</code></td></tr>
+        <tr><td>3</td><td><strong>Ningún test ejecuta una petición real</strong></td><td>Desconectar internet y correr la suite: tiene que dar exactamente igual</td></tr>
+        <tr><td>4</td><td>Ningún test tarda de verdad</td><td>La duración total baja de 2 s. Si algún archivo tarda 600 ms, no falsificaste el reloj</td></tr>
+        <tr><td>5</td><td>Elegiste el doble más liviano en cada caso</td><td>Buscar <code>vi.mock</code>: sólo puede aparecer en <code>MesonView.test.js</code></td></tr>
+        <tr><td>5b</td><td>Los eventos se comprueban con <code>emitted()</code>, no con espías</td><td>Buscar <code>vi</code> en <code>ContadorLinea.test.js</code>: <strong>no puede aparecer</strong></td></tr>
+        <tr><td>6</td><td>Los <code>vi.mock</code> están en el nivel superior del archivo</td><td>Que ninguno esté indentado dentro de un <code>describe</code></td></tr>
+        <tr><td>7</td><td>Hay limpieza entre tests</td><td><code>clearMocks</code>/<code>restoreMocks</code> en el config, o <code>beforeEach</code></td></tr>
+        <tr><td>8</td><td>Ningún <code>toHaveBeenCalled</code> sin paréntesis</td><td>Buscar <code>toHaveBeenCalled)</code> y <code>toHaveBeenCalled;</code></td></tr>
+        <tr><td>9</td><td>Todos los <code>trigger</code> y <code>setValue</code> llevan <code>await</code></td><td>Buscar <code>.trigger(</code> sin <code>await</code> delante</td></tr>
+        <tr><td>10</td><td>Los tests pasan en cualquier orden</td><td>Correr un archivo suelto: <code>npx vitest run tests/dominio/caja.test.js</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Los errores que te van a pasar</h3>
+
+  <div class="tabla-scroll">
+    <table>
+      <thead><tr><th>Síntoma</th><th>Causa</th><th>Arreglo</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><em>«Cannot read properties of null (reading 'fillRect')»</em></td>
+          <td>Montaste un componente cuyo hijo dibuja en canvas</td>
+          <td><code>global: { stubs: { EtiquetaTermica: true } }</code></td>
+        </tr>
+        <tr>
+          <td><em>«Cannot access 'X' before initialization»</em></td>
+          <td>Usaste una variable externa dentro de la fábrica de <code>vi.mock</code></td>
+          <td>La función de Vitest que sube junto con <code>vi.mock</code></td>
+        </tr>
+        <tr>
+          <td><em>«Cannot read properties of undefined (reading 'push')»</em></td>
+          <td><code>useRouter()</code> devolvió <code>undefined</code>: no hay router y no lo falsificaste</td>
+          <td><code>vi.mock('vue-router', ...)</code></td>
+        </tr>
+        <tr>
+          <td>La aserción ve el valor <strong>anterior</strong></td>
+          <td>Falta <code>await</code> en un <code>trigger</code> o <code>setValue</code></td>
+          <td><code>await</code> en todo lo que cambia estado</td>
+        </tr>
+        <tr>
+          <td>El test se cuelga hasta que Vitest lo mata</td>
+          <td><code>flushPromises()</code> con temporizadores falsos activos</td>
+          <td>Congelar el reloj <strong>después</strong> del montaje y del <code>flushPromises</code></td>
+        </tr>
+        <tr>
+          <td>Un test pasa solo pero falla en grupo</td>
+          <td>Un espía del test anterior sigue instalado</td>
+          <td><code>restoreMocks: true</code>, o <code>vi.restoreAllMocks()</code></td>
+        </tr>
+        <tr>
+          <td><code>vi.restoreAllMocks()</code> no limpia el mock del módulo</td>
+          <td><code>restore</code> sólo revierte lo instalado con <code>vi.spyOn</code></td>
+          <td>Para los <code>vi.fn()</code> de un <code>vi.mock</code>: <code>vi.clearAllMocks()</code></td>
+        </tr>
+        <tr>
+          <td>La salida se llena de líneas <code>[telemetría] …</code></td>
+          <td>Un spy no bloquea el original</td>
+          <td><code>.mockImplementation(() =&gt; {})</code> — y ahí deja de ser un spy</td>
+        </tr>
+        <tr>
+          <td>El estado «cargando» no se alcanza a ver nunca</td>
+          <td>Tu stub resuelve de inmediato</td>
+          <td><code>mockReturnValue(new Promise(() =&gt; {}))</code>: nunca se resuelve</td>
+        </tr>
+        <tr>
+          <td>El HTML sale vacío y el slot desapareció</td>
+          <td><code>shallowMount</code> stubeó al hijo y se tragó el slot</td>
+          <td>Stubear sólo lo que estorba, o la opción <code>render…</code> de <code>global</code></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="alto">
+    <strong>La prueba de que tus tests sirven: rómpelos a propósito.</strong>
+    <p>
+      Cuando termines, entra a <code>MesonView.vue</code> y borra la línea
+      <code>telemetria.registrar('producto_agregado', …)</code>. Corre la suite.
+    </p>
+    <p>
+      <strong>Si nada se pone rojo, ese efecto no estaba probado.</strong> Devuelve el cambio y escribe
+      el test que faltaba. Repítelo borrando el <code>clearTimeout</code>, y cambiando el
+      <code>router.push</code> de sitio.
+    </p>
+  </div>
+
+  <h3>Si terminas antes</h3>
+
+  <div class="reto">
+    <h4>Extras, en orden de dificultad</h4>
+    <ol>
+      <li>
+        <strong>El error del envío.</strong> Hoy, si <code>enviarPedido</code> falla, el componente
+        revienta: no hay <code>try/catch</code>. Escribe primero el test que lo demuestre, después
+        arregla <code>MesonView</code> para que muestre un mensaje humano y <strong>conserve el
+        pedido</strong> — perder el carrito del cliente por un error de red es imperdonable.
+      </li>
+      <li>
+        <strong>Mock parcial.</strong> Falsifica sólo <code>enviarPedido</code> de
+        <code>pedidosApi.js</code> y deja <code>obtenerCatalogo</code> real, usando
+        <code>importOriginal</code>. Explica en el README en qué situación de la vida real esto sirve.
+      </li>
+      <li>
+        <strong><code>RouterLink</code>.</strong> Agrega al mesón un enlace «Ver boletas del día» con
+        <code>&lt;RouterLink&gt;</code>. Tu test va a fallar. Resuélvelo con el stub oficial que
+        exporta <code>@vue/test-utils</code> y comprueba de paso a qué ruta apunta.
+      </li>
+      <li>
+        <strong>El doble clic, en serio.</strong> Ya arreglaste el defecto del R5. Ahora escribe el
+        test del caso contrario: después de que el envío <em>termina</em>, el botón vuelve a
+        habilitarse y un segundo pedido sí se puede mandar. Sin ese test, alguien podría «arreglar» el
+        defecto dejando el botón bloqueado para siempre y nadie se enteraría.
+      </li>
+      <li>
+        <strong>TDD de verdad.</strong> El negocio pide un botón «Vaciar pedido» que deje el carrito
+        en cero y registre <code>'pedido_vaciado'</code> en telemetría. <strong>Escribe primero los
+        tests</strong>, míralos fallar, y recién ahí toca el componente.
+      </li>
+    </ol>
+  </div>
+
+  <div class="vivo">
+    <strong>Lo que se lleva quien hace bien esta actividad.</strong>
+    <p>
+      Un criterio, no una sintaxis: <strong>el doble más liviano que resuelva el problema</strong>.
+      Spy si sólo quiero mirar. Stub si necesito controlar la respuesta. Mock si el módulo entero no
+      debe ni cargarse. Quien mockea todo por si acaso termina con tests que prueban sus propios
+      mocks.
+    </p>
+    <p>
+      Y una segunda cosa, más difícil de enseñar: <strong>cuando algo es difícil de probar, casi nunca
+      es culpa del test.</strong> Es el diseño avisándote que esconde sus dependencias. Fíjate en la
+      diferencia entre <code>cobrar</code>, que recibe la pasarela y se prueba en tres líneas, y
+      <code>MesonView</code>, que importa cinco cosas y necesita media página de preparación.
+    </p>
+  </div>
+</section>
+
+<footer>
+  Módulo 7 · Lección 4 — Actividad práctica II · Vite + Vitest + Vue Test Utils<br>
+  Dobles de prueba: <code>vi.fn()</code> · <code>vi.spyOn()</code> · <code>global.stubs</code> · <code>vi.mock()</code>
+</footer>
+
+</div>
+
+
+<script>
+  // ====================================================================
+  // RESALTADOR DE SINTAXIS + ORGANIZACIÓN DEL CÓDIGO RESUELTO
+  //
+  // Escrito a mano y sin dependencias, a propósito: este documento tiene
+  // que abrirse desde el disco (file://) y funcionar sin internet.
+  //
+  // Trabaja sobre el TEXTO del bloque (textContent) y vuelve a escaparlo
+  // al pintar. Por eso el código que copias es exactamente el mismo que
+  // está escrito en el archivo: el color se agrega en el navegador.
+  // ====================================================================
+  (function () {
+    'use strict';
+
+    function esc(s) {
+      return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    /* ------------------------------------------------------------------
+       Motor: una sola pasada con una expresión regular alternada.
+       Regla de oro — los patrones NO pueden llevar grupos capturadores,
+       solo (?:...), porque el índice del grupo identifica qué coincidió.
+       ------------------------------------------------------------------ */
+    function pintar(texto, patrones) {
+      if (!texto) return '';
+      var re = new RegExp(patrones.map(function (p) { return '(' + p.r + ')'; }).join('|'), 'gm');
+      var salida = '', ultimo = 0, m;
+
+      while ((m = re.exec(texto)) !== null) {
+        if (m[0] === '') { re.lastIndex++; continue; }
+        if (m.index > ultimo) salida += esc(texto.slice(ultimo, m.index));
+
+        var clase = null;
+        for (var i = 1; i <= patrones.length; i++) {
+          if (m[i] !== undefined) { clase = patrones[i - 1].c; break; }
+        }
+        salida += clase
+          ? '<span class="t-' + clase + '">' + esc(m[0]) + '</span>'
+          : esc(m[0]);
+
+        ultimo = m.index + m[0].length;
+      }
+
+      salida += esc(texto.slice(ultimo));
+      return salida;
+    }
+
+    /* ---------------------------- JavaScript ---------------------------- */
+    var JS = [
+      { c: 'com',  r: '\\/\\*[\\s\\S]*?\\*\\/' },
+      { c: 'com',  r: '\\/\\/[^\\n]*' },
+      { c: 'str',  r: '`(?:\\\\[\\s\\S]|[^`\\\\])*`' },
+      { c: 'str',  r: '"(?:\\\\.|[^"\\\\\\n])*"' },
+      { c: 'str',  r: "'(?:\\\\.|[^'\\\\\\n])*'" },
+      { c: 'kw',   r: '\\b(?:import|from|export|default|const|let|var|function|return|if|else|for|while|do|switch|case|break|continue|try|catch|finally|throw|new|delete|typeof|instanceof|class|extends|async|await|yield|this|super|static)\\b' },
+      { c: 'lit',  r: '\\b(?:true|false|null|undefined|NaN|Infinity)\\b' },
+      { c: 'num',  r: '\\b(?:0[xX][\\da-fA-F]+|\\d+(?:\\.\\d+)?(?:[eE][+-]?\\d+)?)\\b' },
+      { c: 'fn',   r: '\\b[A-Za-z_$][\\w$]*(?=\\s*\\()' },
+      { c: 'prop', r: '\\b[A-Za-z_$][\\w$]*(?=\\s*:)' },
+      { c: 'op',   r: '=>|\\.\\.\\.|\\?\\?|\\?\\.|&&|\\|\\||[←→↓]+' }
+    ];
+
+    /* ------------------------------- JSON ------------------------------- */
+    var JSON_ = [
+      { c: 'com',  r: '\\/\\/[^\\n]*' },
+      // Las anotaciones con flecha son notas del profesor, no datos:
+      // se leen como comentario aunque JSON no tenga comentarios.
+      { c: 'com',  r: '←[^\\n]*' },
+      { c: 'prop', r: '"(?:\\\\.|[^"\\\\])*"(?=\\s*:)' },
+      { c: 'str',  r: '"(?:\\\\.|[^"\\\\])*"' },
+      { c: 'lit',  r: '\\b(?:true|false|null)\\b' },
+      { c: 'num',  r: '-?\\b\\d+(?:\\.\\d+)?\\b' },
+      { c: 'op',   r: '[→]+' }
+    ];
+
+    /* ------------------------------ Terminal ---------------------------- */
+    var BASH = [
+      { c: 'com',  r: '#[^\\n]*' },
+      { c: 'str',  r: 'https?:\\/\\/[^\\s\'"\\\\]+' },
+      { c: 'str',  r: '"(?:\\\\.|[^"\\\\])*"' },
+      { c: 'str',  r: "'(?:\\\\[\\s\\S]|[^'\\\\])*'" },
+      { c: 'kw',   r: '^\\s*(?:npm|npx|node|cd|curl|git|mkdir|for|do|done|echo|export|cat|rm|ls|printf)\\b' },
+      { c: 'fn',   r: '(?:^|\\s)-{1,2}[A-Za-z][\\w-]*' },
+      { c: 'op',   r: '[←→|]+' },
+      { c: 'num',  r: '\\b\\d+(?:\\.\\d+)?\\b' }
+    ];
+
+    /* --------------------- Árbol de carpetas y salidas ------------------- */
+    var ARBOL = [
+      { c: 'com',  r: '←[^\\n]*' },
+      { c: 'op',   r: '[├└│─]+' },
+      { c: 'ruta', r: '[\\w.@-]+\\/' }
+    ];
+
+    /* -------------------------------- CSS -------------------------------- */
+    var CSS_ = [
+      { c: 'com',  r: '\\/\\*[\\s\\S]*?\\*\\/' },
+      { c: 'str',  r: '"(?:\\\\.|[^"\\\\])*"' },
+      { c: 'prop', r: '[-\\w]+(?=\\s*:)' },
+      { c: 'num',  r: '-?\\b\\d+(?:\\.\\d+)?(?:px|rem|em|%|s|ms|vh|vw|fr)?\\b' },
+      { c: 'tag',  r: '[.#][-\\w]+' }
+    ];
+
+    /* -------------------------------- HTML ------------------------------- */
+    var HTML_ = [
+      { c: 'com',    r: '<!--[\\s\\S]*?-->' },
+      { c: 'interp', r: '\\{\\{[^}]*\\}\\}' },
+      { c: 'dir',    r: '(?:^|\\s)(?:v-[\\w:.\\-]+|[@:#][\\w:.\\-]+)(?=[=\\s>])' },
+      { c: 'attr',   r: '(?:^|\\s)[A-Za-z][\\w\\-]*(?==)' },
+      { c: 'str',    r: '"(?:\\\\.|[^"\\\\])*"' },
+      { c: 'str',    r: "'(?:\\\\.|[^'\\\\])*'" },
+      { c: 'tag',    r: '<\\/?[A-Za-z][\\w\\-]*' },
+      { c: 'tag',   r: '\\/?>' }
+    ];
+
+    /* ------------------------------------------------------------------
+       Componente de archivo único (.vue): tres lenguajes en un archivo.
+       Recorremos las etiquetas de apertura y cierre para saber en qué
+       región estamos, y a cada región le aplicamos su propio pintor.
+       ------------------------------------------------------------------ */
+    function pintarVue(texto) {
+      var re = /<script(?:\s[^>]*)?>|<\/script>|<style(?:\s[^>]*)?>|<\/style>/g;
+      var salida = '', pos = 0, modo = 'html', m;
+
+      function region(t) {
+        if (!t) return '';
+        if (modo === 'js') return pintar(t, JS);
+        if (modo === 'css') return pintar(t, CSS_);
+        return pintar(t, HTML_);
+      }
+
+      while ((m = re.exec(texto)) !== null) {
+        salida += region(texto.slice(pos, m.index));
+        salida += pintar(m[0], HTML_);          // la etiqueta, siempre como HTML
+        pos = m.index + m[0].length;
+
+        if (/^<script/.test(m[0]))       modo = 'js';
+        else if (/^<\/script/.test(m[0])) modo = 'html';
+        else if (/^<style/.test(m[0]))    modo = 'css';
+        else if (/^<\/style/.test(m[0]))  modo = 'html';
+      }
+
+      salida += region(texto.slice(pos));
+      return salida;
+    }
+
+    /* ------------------------------------------------------------------
+       Qué lenguaje es cada bloque. Se decide mirando la etiqueta del
+       archivo y, sobre todo, el contenido: el contenido nunca miente.
+       ------------------------------------------------------------------ */
+    function detectarLenguaje(etiqueta, codigo) {
+      var clases = etiqueta ? etiqueta.className : '';
+      var titulo = etiqueta ? etiqueta.textContent : '';
+
+      if (/[├└]──/.test(codigo)) return 'arbol';
+      if (/file--api/.test(clases)) return 'json';
+      if (/<\/(?:template|script|style)>/.test(codigo) || /\.vue\b/i.test(titulo)) return 'vue';
+      if (/file--term/.test(clases)) {
+        return /(?:^|\n)\s*(?:npm|npx|node|cd|curl|git|mkdir|for|echo|printf)\b/.test(codigo)
+          ? 'bash' : 'js';
+      }
+      if (/\.css\b/i.test(titulo)) return 'css';
+      if (/\.html\b/i.test(titulo)) return 'html';
+      if (/^\s*[{[]/.test(codigo) && /"\s*:/.test(codigo)) return 'json';
+      return 'js';
+    }
+
+    var PINTORES = {
+      js:    function (t) { return pintar(t, JS); },
+      json:  function (t) { return pintar(t, JSON_); },
+      bash:  function (t) { return pintar(t, BASH); },
+      arbol: function (t) { return pintar(t, ARBOL); },
+      css:   function (t) { return pintar(t, CSS_); },
+      html:  function (t) { return pintar(t, HTML_); },
+      vue:   pintarVue
+    };
+
+    var NOMBRES = { js: 'js', json: 'json', bash: 'terminal', arbol: 'estructura', css: 'css', vue: 'vue', html: 'html' };
+
+    /* ------------------------------------------------------------------
+       Recorrido de todos los bloques
+       ------------------------------------------------------------------ */
+    var RUTA = /([\w@.\-]+(?:\/[\w@.\-]+)*\.(?:js|vue|json|ts|css|html))/;
+
+    var bloques = Array.prototype.slice.call(document.querySelectorAll('pre > code'));
+
+    bloques.forEach(function (codigo, indice) {
+      var pre = codigo.parentNode;
+
+      // La etiqueta del archivo es el hermano anterior del <pre>
+      var etiqueta = pre.previousElementSibling;
+      if (etiqueta && !etiqueta.classList.contains('file')) etiqueta = null;
+
+      var texto = codigo.textContent;
+      var lenguaje = detectarLenguaje(etiqueta, texto);
+
+      // 1. Colorear
+      codigo.innerHTML = PINTORES[lenguaje](texto);
+      pre.setAttribute('data-lang', NOMBRES[lenguaje] || lenguaje);
+
+      // 2. Clasificar el bloque para que el borde diga qué es
+      var clases = etiqueta ? etiqueta.className : '';
+      var titulo = etiqueta ? etiqueta.textContent : '';
+      var esRuta = RUTA.test(titulo);
+      var tipo;
+
+      // Una maqueta es material de apoyo, NO la solución: no debe pintarse
+      // de verde ni aparecer en el índice de archivos del proyecto.
+      if (/file--maqueta/.test(clases))    tipo = 'maqueta';
+      else if (/file--mal/.test(clases))  tipo = 'problema';
+      else if (/file--api/.test(clases))  tipo = 'api';
+      else if (/file--term/.test(clases)) tipo = 'terminal';
+      else if (esRuta || /file--bien/.test(clases)) tipo = 'solucion';
+      else tipo = 'neutro';
+
+      pre.setAttribute('data-tipo', tipo);
+
+      // Un archivo del proyecto ES la solución, se llame como se llame
+      // la etiqueta. Unificamos para que el verde signifique siempre
+      // lo mismo: "esto va en tu proyecto".
+      if (tipo === 'solucion' && etiqueta) etiqueta.classList.add('file--bien');
+
+      if (etiqueta && !etiqueta.id) etiqueta.id = 'cod-' + indice;
+      if (etiqueta) etiqueta.setAttribute('data-tipo', tipo);
+    });
+
+    /* ------------------------------------------------------------------
+       Índice del código resuelto, uno por ejercicio.
+       Responde de un vistazo: "¿qué archivos me tienen que quedar
+       escritos al terminar esta actividad?"
+       ------------------------------------------------------------------ */
+    document.querySelectorAll('section.ejercicio').forEach(function (seccion) {
+      var archivos = Array.prototype.slice
+        .call(seccion.querySelectorAll('.file[data-tipo="solucion"]'))
+        .map(function (et) {
+          var m = et.textContent.match(RUTA);
+          return m ? { nombre: m[1], id: et.id } : null;
+        })
+        .filter(Boolean);
+
+      // Un mismo archivo puede aparecer varias veces (se va construyendo
+      // por partes). Nos quedamos con la primera aparición de cada uno.
+      var vistos = {};
+      archivos = archivos.filter(function (a) {
+        if (vistos[a.nombre]) return false;
+        vistos[a.nombre] = true;
+        return true;
+      });
+
+      if (archivos.length < 2) return;
+
+      var caja = document.createElement('details');
+      caja.className = 'resuelto';
+      caja.open = true;
+
+      var titulo = document.createElement('summary');
+      titulo.appendChild(document.createTextNode('Archivos de este bloque'));
+      var conteo = document.createElement('span');
+      conteo.className = 'resuelto__conteo';
+      conteo.textContent = archivos.length + (archivos.length === 1 ? ' archivo' : ' archivos');
+      titulo.appendChild(conteo);
+      caja.appendChild(titulo);
+
+      var lista = document.createElement('ol');
+      archivos.forEach(function (a) {
+        var li = document.createElement('li');
+        var enlace = document.createElement('a');
+        enlace.href = '#' + a.id;
+        enlace.textContent = a.nombre;
+        li.appendChild(enlace);
+        lista.appendChild(li);
+      });
+      caja.appendChild(lista);
+
+      var pie = document.createElement('p');
+      pie.className = 'resuelto__nota';
+      pie.textContent = 'Los marcados en verde te los entregamos ya escritos: no los toques. '
+        + 'Los de borde gris son plantillas que completas tú.';
+      caja.appendChild(pie);
+
+      // Va justo debajo de la franja de datos del ejercicio
+      var meta = seccion.querySelector('.meta');
+      if (meta && meta.nextSibling) seccion.insertBefore(caja, meta.nextSibling);
+      else if (meta) seccion.appendChild(caja);
+    });
+  })();
+
+</script>
+
+<script>
+  // Botón "Copiar" en cada bloque de código.
+  // Vanilla puro y sin dependencias: este documento es material de lectura.
+  (function () {
+    'use strict';
+
+    function copiarTexto(texto) {
+      if (navigator.clipboard && window.isSecureContext) {
+        return navigator.clipboard.writeText(texto);
+      }
+
+      // Respaldo para cuando el archivo se abre con file://
+      return new Promise(function (resolver, rechazar) {
+        var area = document.createElement('textarea');
+        area.value = texto;
+        area.setAttribute('readonly', '');
+        area.style.position = 'fixed';
+        area.style.top = '-1000px';
+        area.style.opacity = '0';
+        document.body.appendChild(area);
+        area.select();
+
+        try {
+          document.execCommand('copy') ? resolver() : rechazar();
+        } catch (e) {
+          rechazar(e);
+        } finally {
+          document.body.removeChild(area);
+        }
+      });
+    }
+
+    function marcar(boton, clase, texto) {
+      boton.className = 'btn-copiar ' + clase;
+      boton.textContent = texto;
+      clearTimeout(boton._temporizador);
+      boton._temporizador = setTimeout(function () {
+        boton.className = 'btn-copiar';
+        boton.textContent = '📋 Copiar';
+      }, 1800);
+    }
+
+    document.querySelectorAll('pre > code').forEach(function (codigo, indice) {
+      var pre = codigo.parentNode;
+
+      var caja = document.createElement('div');
+      caja.className = 'bloque-codigo';
+      pre.parentNode.insertBefore(caja, pre);
+      caja.appendChild(pre);
+
+      var boton = document.createElement('button');
+      boton.type = 'button';
+      boton.className = 'btn-copiar';
+      boton.textContent = '📋 Copiar';
+      boton.setAttribute('aria-label', 'Copiar el bloque de código ' + (indice + 1));
+
+      boton.addEventListener('click', function () {
+        copiarTexto(codigo.innerText)
+          .then(function () { marcar(boton, 'ok', '✓ Copiado'); })
+          .catch(function () { marcar(boton, 'falla', '✕ Error'); });
+      });
+
+      caja.appendChild(boton);
+    });
+  })();
+
+</script>
+
+<script>
+  // ====================================================================
+  // BARRA FIJA: en qué ejercicio estoy y cuánto llevo leído.
+  // Se construye entera desde acá, sin tocar el HTML del documento.
+  // Vanilla puro, sin dependencias.
+  // ====================================================================
+  (function () {
+    'use strict';
+
+    var ETIQUETAS = {
+      prep:   { corta: 'Base', larga: 'De dónde partes',                            color: '#5b6b7c' },
+      ej1:    { corta: 'R1',   larga: 'Requisito 1 — Montar, mirar e interactuar',   color: '#2f8f66' },
+      ej2:    { corta: 'R2',   larga: 'Requisito 2 — vi.fn(): el espía que entregas', color: '#2a6fc9' },
+      ej3:    { corta: 'R3',   larga: 'Requisito 3 — vi.spyOn(): el efecto invisible', color: '#c47a1b' },
+      ej4:    { corta: 'R4',   larga: 'Requisito 4 — Stubs: dictar la respuesta',    color: '#7a4fc0' },
+      ej5:    { corta: 'R5',   larga: 'Requisito 5 — Stubs de componente',           color: '#b8384f' },
+      ej6:    { corta: 'R6',   larga: 'Requisito 6 — Mocks de módulo',               color: '#0f7b8a' },
+      cierre: { corta: 'Fin',  larga: 'Cierre y rúbrica',                            color: '#33424f' }
+    };
+
+    var secciones = Array.prototype.slice.call(
+      document.querySelectorAll('section.ejercicio[id]')
+    );
+    if (!secciones.length) return;
+
+    /* ---------- Construcción de la barra ---------- */
+    var barra = document.createElement('div');
+    barra.className = 'barra-fija';
+
+    var progreso = document.createElement('div');
+    progreso.className = 'barra-progreso';
+    var relleno = document.createElement('i');
+    progreso.appendChild(relleno);
+
+    var cuerpo = document.createElement('div');
+    cuerpo.className = 'barra-cuerpo';
+
+    var marca = document.createElement('span');
+    marca.className = 'barra-marca';
+    marca.textContent = 'M7 · L4';
+
+    var actual = document.createElement('span');
+    actual.className = 'barra-actual';
+    actual.textContent = 'Actividad práctica · Spies, stubs y mocks';
+
+    var saltos = document.createElement('nav');
+    saltos.className = 'barra-saltos';
+    saltos.setAttribute('aria-label', 'Ir a un ejercicio');
+
+    var enlaces = secciones.map(function (seccion) {
+      var info = ETIQUETAS[seccion.id] || { corta: seccion.id, larga: seccion.id, color: '#34495e' };
+      var a = document.createElement('a');
+      a.href = '#' + seccion.id;
+      a.textContent = info.corta;
+      a.title = info.larga;
+      a.setAttribute('aria-label', info.larga);
+      a.style.setProperty('--acento-pill', info.color);
+      a._info = info;
+      saltos.appendChild(a);
+      return a;
+    });
+
+    var arriba = document.createElement('a');
+    arriba.href = '#';
+    arriba.className = 'arriba';
+    arriba.textContent = '↑';
+    arriba.title = 'Volver arriba';
+    arriba.setAttribute('aria-label', 'Volver arriba');
+    arriba.addEventListener('click', function (e) {
+      e.preventDefault();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+    saltos.appendChild(arriba);
+
+    cuerpo.appendChild(marca);
+    cuerpo.appendChild(actual);
+    cuerpo.appendChild(saltos);
+    barra.appendChild(progreso);
+    barra.appendChild(cuerpo);
+    document.body.appendChild(barra);
+
+    /* ---------- Actualización al hacer scroll ---------- */
+    var pendiente = false;
+
+    function actualizar() {
+      pendiente = false;
+
+      // Progreso de lectura del documento completo
+      var alto = document.documentElement.scrollHeight - window.innerHeight;
+      var leido = alto > 0 ? (window.scrollY / alto) * 100 : 0;
+      relleno.style.width = Math.min(100, Math.max(0, leido)) + '%';
+
+      // Sección activa: la última cuyo borde superior ya pasó la barra
+      var limite = window.scrollY + (window.innerHeight * 0.28);
+      var activa = null;
+
+      for (var i = 0; i < secciones.length; i++) {
+        if (secciones[i].offsetTop <= limite) activa = i;
+      }
+
+      enlaces.forEach(function (a, i) {
+        var esta = (i === activa);
+        a.classList.toggle('activo', esta);
+        if (esta) a.setAttribute('aria-current', 'true');
+        else a.removeAttribute('aria-current');
+      });
+
+      actual.textContent = activa === null
+        ? 'Actividad práctica · Spies, stubs y mocks'
+        : enlaces[activa]._info.larga;
+    }
+
+    function alDesplazar() {
+      if (pendiente) return;
+      pendiente = true;
+      window.requestAnimationFrame(actualizar);
+    }
+
+    window.addEventListener('scroll', alDesplazar, { passive: true });
+    window.addEventListener('resize', alDesplazar, { passive: true });
+    actualizar();
+  })();
+
+</script>
+</body>
+</html>
