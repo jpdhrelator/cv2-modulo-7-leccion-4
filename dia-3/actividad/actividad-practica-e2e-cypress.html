@@ -1,0 +1,2380 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Actividad práctica · Fundamentos end-to-end con Cypress</title>
+<style>
+  /* ==================================================================
+     SISTEMA VISUAL
+     Cada requisito tiene un COLOR PROPIO. Ese color pinta la banda del
+     título, el riel de los pasos y la píldora del menú fijo.
+     ================================================================== */
+  :root{
+    --bg:#eaeef3;
+    --surface:#ffffff;
+    --surface-2:#f5f8fa;
+    --ink:#151c23;
+    --ink-soft:#5a6673;
+    --line:#dce3ea;
+    --brand:#42b883;
+    --brand-dark:#2f8f66;
+    --accent:#34495e;
+    --warn:#e8a33d;
+    --danger:#c0392b;
+    --info:#3b7dd8;
+    --code-bg:#1b212c;
+    --code-ink:#e6edf3;
+    --radius:14px;
+    --barra-alto:52px;
+    --sombra:0 1px 2px rgba(20,30,40,.05), 0 8px 24px rgba(20,30,40,.07);
+
+    --acento:#34495e;
+    --acento-suave:#eef2f6;
+  }
+
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.65;
+    padding-top:var(--barra-alto);
+  }
+  .wrap{max-width:1000px;margin:0 auto;padding:2rem 1.5rem 6rem;}
+
+  /* ------------------------------------------------------------------
+     BARRA FIJA — se construye desde JavaScript al final del documento
+     ------------------------------------------------------------------ */
+  .barra-fija{
+    position:fixed;top:0;left:0;right:0;z-index:60;
+    background:rgba(255,255,255,.94);
+    backdrop-filter:saturate(180%) blur(12px);
+    -webkit-backdrop-filter:saturate(180%) blur(12px);
+    border-bottom:1px solid var(--line);
+    box-shadow:0 1px 12px rgba(20,30,40,.06);
+  }
+  .barra-progreso{height:3px;background:transparent;}
+  .barra-progreso i{display:block;height:100%;width:0;background:linear-gradient(90deg,#42b883,#3b7dd8);transition:width .1s linear;}
+  .barra-cuerpo{
+    max-width:1000px;margin:0 auto;
+    height:calc(var(--barra-alto) - 3px);
+    display:flex;align-items:center;gap:.75rem;padding:0 1.5rem;
+  }
+  .barra-marca{
+    font-size:.7rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
+    color:#fff;background:var(--accent);padding:.25rem .55rem;border-radius:5px;
+    white-space:nowrap;flex-shrink:0;
+  }
+  .barra-actual{
+    font-size:.85rem;font-weight:700;color:var(--ink);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    flex:1;min-width:0;
+  }
+  .barra-saltos{display:flex;gap:.3rem;flex-shrink:0;}
+  .barra-saltos a{
+    display:inline-flex;align-items:center;justify-content:center;
+    min-width:30px;height:30px;padding:0 .5rem;
+    border-radius:8px;border:1px solid var(--line);
+    background:var(--surface-2);color:var(--ink-soft);
+    font-size:.78rem;font-weight:700;text-decoration:none;
+    transition:all .15s ease;
+  }
+  .barra-saltos a:hover{border-color:var(--acento);color:var(--acento);}
+  .barra-saltos a.activo{
+    background:var(--acento-pill,#34495e);border-color:var(--acento-pill,#34495e);
+    color:#fff;box-shadow:0 2px 8px rgba(20,30,40,.18);
+  }
+  .barra-saltos a.arriba{font-size:.95rem;}
+  @media (max-width:760px){
+    .barra-actual{display:none;}
+    .barra-saltos{flex:1;justify-content:flex-end;}
+  }
+  @media (max-width:420px){
+    .barra-saltos a.arriba{display:none;}
+  }
+
+  /* ------------------------------------------------------------------ */
+  header.hero{
+    background:
+      radial-gradient(1200px 400px at 15% -10%, rgba(66,184,131,.28), transparent 60%),
+      linear-gradient(135deg,#22313f,#141d26);
+    color:#fff;padding:3.25rem 1.5rem;
+  }
+  header.hero .wrap{padding:0;max-width:1000px;}
+  header.hero h1{margin:0 0 .75rem;font-size:2.15rem;line-height:1.15;letter-spacing:-.02em;}
+  header.hero p{margin:0 0 .75rem;color:#c4d1dc;max-width:70ch;}
+  header.hero p:last-child{margin-bottom:0;}
+  header.hero strong{color:#fff;}
+  header.hero code{background:rgba(255,255,255,.12);color:#d7f0e4;}
+  .badge{
+    display:inline-block;background:var(--brand);color:#0b2418;
+    font-weight:800;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;
+    padding:.3rem .8rem;border-radius:999px;margin-bottom:1.1rem;
+  }
+
+  /* ------------------------------------------------------------------
+     ÍNDICE
+     ------------------------------------------------------------------ */
+  nav.toc{
+    background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    padding:1.5rem;margin:2rem 0 2.5rem;box-shadow:var(--sombra);
+  }
+  nav.toc h2{
+    margin:0 0 1rem;font-size:.78rem;text-transform:uppercase;letter-spacing:.1em;
+    color:var(--ink-soft);font-weight:800;
+  }
+  nav.toc ol{margin:0;padding:0;list-style:none;display:grid;gap:.5rem;}
+  nav.toc li{
+    margin:0;position:relative;
+    padding:.7rem .9rem .7rem 3rem;
+    border:1px solid var(--line);border-radius:10px;background:var(--surface-2);
+    transition:all .15s ease;
+  }
+  nav.toc li::before{
+    position:absolute;left:.7rem;top:50%;transform:translateY(-50%);
+    width:26px;height:26px;border-radius:7px;
+    display:flex;align-items:center;justify-content:center;
+    background:var(--accent);color:#fff;font-size:.78rem;font-weight:800;
+  }
+  nav.toc li:nth-child(1)::before{content:"◆";background:#5b6b7c;font-size:.7rem;}
+  nav.toc li:nth-child(2)::before{content:"1";background:#2f8f66;}
+  nav.toc li:nth-child(3)::before{content:"2";background:#2a6fc9;}
+  nav.toc li:nth-child(4)::before{content:"3";background:#c47a1b;}
+  nav.toc li:nth-child(5)::before{content:"4";background:#7a4fc0;}
+  nav.toc li:nth-child(6)::before{content:"5";background:#b8384f;}
+  nav.toc li:nth-child(7)::before{content:"✓";background:#33424f;}
+  nav.toc li::after{
+    content:"";position:absolute;left:0;top:8px;bottom:8px;width:3px;border-radius:0 3px 3px 0;
+  }
+  nav.toc li:nth-child(1)::after{background:#5b6b7c;}
+  nav.toc li:nth-child(2)::after{background:#2f8f66;}
+  nav.toc li:nth-child(3)::after{background:#2a6fc9;}
+  nav.toc li:nth-child(4)::after{background:#c47a1b;}
+  nav.toc li:nth-child(5)::after{background:#7a4fc0;}
+  nav.toc li:nth-child(6)::after{background:#b8384f;}
+  nav.toc li:nth-child(7)::after{background:#33424f;}
+  nav.toc li:hover{background:#fff;border-color:#c3cfda;transform:translateX(3px);box-shadow:var(--sombra);}
+  nav.toc a{color:var(--ink);text-decoration:none;font-weight:700;}
+  nav.toc a:hover{color:var(--brand-dark);}
+  nav.toc .min{color:var(--ink-soft);font-weight:500;font-size:.82rem;display:block;}
+
+  /* ------------------------------------------------------------------
+     SECCIÓN — banda de color + contenido
+     ------------------------------------------------------------------ */
+  body{counter-reset:ejercicio;}
+
+  section.ejercicio{
+    background:var(--surface);border:1px solid var(--line);
+    border-radius:var(--radius);padding:2rem;margin-bottom:2.25rem;
+    box-shadow:var(--sombra);
+    scroll-margin-top:calc(var(--barra-alto) + 12px);
+    overflow:hidden;
+  }
+
+  #prep  {--acento:#5b6b7c;--acento-suave:#eef1f4;--acento-2:#43505d;}
+  #ej1   {--acento:#2f8f66;--acento-suave:#e9f6f0;--acento-2:#1f6b4b;}
+  #ej2   {--acento:#2a6fc9;--acento-suave:#e9f1fb;--acento-2:#1d5099;}
+  #ej3   {--acento:#c47a1b;--acento-suave:#fdf3e4;--acento-2:#96590c;}
+  #ej4   {--acento:#7a4fc0;--acento-suave:#f2ecfb;--acento-2:#5b3595;}
+  #ej5   {--acento:#b8384f;--acento-suave:#fbebee;--acento-2:#8d2438;}
+  #cierre{--acento:#33424f;--acento-suave:#eef1f4;--acento-2:#22303c;}
+
+  section.ejercicio > h2{
+    margin:-2rem -2rem 0;
+    padding:1.4rem 2rem 1.3rem 2rem;
+    background:linear-gradient(135deg,var(--acento),var(--acento-2));
+    color:#fff;font-size:1.4rem;line-height:1.3;letter-spacing:-.01em;
+    border:0;
+    display:flex;align-items:center;gap:.9rem;flex-wrap:wrap;
+  }
+  section.ejercicio > h2 em{font-style:normal;background:rgba(255,255,255,.18);padding:.05em .4em;border-radius:5px;}
+
+  section.ejercicio:not(#prep):not(#cierre){counter-increment:ejercicio;}
+  section.ejercicio > h2::before{
+    flex-shrink:0;
+    width:40px;height:40px;border-radius:11px;
+    background:rgba(255,255,255,.2);
+    border:1px solid rgba(255,255,255,.28);
+    display:flex;align-items:center;justify-content:center;
+    font-size:1.15rem;font-weight:800;
+  }
+  section.ejercicio:not(#prep):not(#cierre) > h2::before{content:counter(ejercicio);}
+  #prep   > h2::before{content:"◆";font-size:1rem;}
+  #cierre > h2::before{content:"✓";}
+
+  .meta{
+    margin:0 -2rem 1.75rem;
+    padding:.7rem 2rem;
+    background:var(--acento-suave);
+    border-bottom:1px solid var(--line);
+    color:var(--ink-soft);font-size:.85rem;
+  }
+  .meta strong{color:var(--acento-2);}
+
+  /* ------------------------------------------------------------------
+     PASOS
+     ------------------------------------------------------------------ */
+  section.ejercicio{counter-reset:paso;}
+  section.ejercicio h3{
+    counter-increment:paso;
+    position:relative;
+    margin:2.5rem 0 .85rem;
+    padding:0 0 .55rem 2.6rem;
+    font-size:1.14rem;font-weight:800;color:var(--ink);
+    letter-spacing:-.01em;
+    border-bottom:2px solid var(--acento-suave);
+  }
+  section.ejercicio h3::before{
+    content:counter(paso);
+    position:absolute;left:0;top:-.1em;
+    width:28px;height:28px;border-radius:9px;
+    background:var(--acento);color:#fff;
+    display:flex;align-items:center;justify-content:center;
+    font-size:.8rem;font-weight:800;
+    box-shadow:0 2px 6px rgba(20,30,40,.16);
+  }
+  section.ejercicio h3:first-of-type{margin-top:1rem;}
+
+  h4{margin:1.6rem 0 .5rem;font-size:.9rem;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.06em;font-weight:800;}
+
+  p{margin:0 0 1rem;}
+  section.ejercicio > ol,
+  section.ejercicio > ul{margin:0 0 1rem;padding-left:1.4rem;}
+  section.ejercicio > ol li,
+  section.ejercicio > ul li{margin-bottom:.4rem;}
+
+  /* ------------------------------------------------------------------
+     CÓDIGO
+     ------------------------------------------------------------------ */
+  .file{
+    display:inline-flex;align-items:flex-start;gap:.45rem;
+    background:var(--accent);color:#fff;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.78rem;font-weight:600;
+    line-height:1.5;
+    padding:.35rem .8rem;border-radius:8px 8px 0 0;margin-top:1.4rem;
+    max-width:100%;
+  }
+  .file::before{content:"📄";font-family:inherit;flex-shrink:0;line-height:1.5;}
+  .file--term{background:#1b212c;}
+  .file--term::before{content:"❯";font-weight:800;}
+  .file--api{background:#2a5da8;}
+  .file--api::before{content:"⇄";}
+  .file--mal{background:var(--danger);}
+  .file--mal::before{content:"✗";font-weight:800;}
+  .file--maqueta{background:#5b6b7c;}
+  .file--maqueta::before{content:"◧";font-weight:800;}
+  .file--bien{background:var(--brand-dark);}
+  .file--bien::before{content:"✓";font-weight:800;}
+
+  pre{
+    background:var(--code-bg);color:var(--code-ink);
+    padding:1.1rem;border-radius:0 var(--radius) var(--radius) var(--radius);
+    overflow-x:auto;margin:0 0 1.1rem;font-size:.84rem;line-height:1.6;
+    box-shadow:0 3px 14px rgba(20,30,40,.16);
+  }
+  pre code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}
+  p code,li code,td code,th code{
+    background:#e8edf2;color:#1d2b38;padding:.12rem .38rem;border-radius:5px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.86em;
+    border:1px solid #dae1e8;
+  }
+
+  /* ------------------------------------------------------------------
+     AVISOS
+     ------------------------------------------------------------------ */
+  .nota,.ojo,.alto,.vivo{
+    position:relative;
+    padding:2.1rem 1.15rem 1rem 1.35rem;
+    border-radius:0 10px 10px 0;
+    margin:1.25rem 0;
+    border-left:4px solid;
+  }
+  .nota::before,.ojo::before,.alto::before,.vivo::before{
+    position:absolute;top:.6rem;left:1.35rem;
+    font-size:.65rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
+    padding:.15rem .5rem;border-radius:4px;color:#fff;
+  }
+  .nota p:last-child,.ojo p:last-child,.alto p:last-child,.vivo p:last-child{margin-bottom:0;}
+
+  .nota{background:#eef8f3;border-left-color:var(--brand);}
+  .nota::before{content:"Clave";background:var(--brand-dark);}
+  .nota strong{color:var(--brand-dark);}
+
+  .ojo{background:#fdf6e8;border-left-color:var(--warn);}
+  .ojo::before{content:"Pista";background:#a06b12;}
+  .ojo strong{color:#8a5c0f;}
+
+  .alto{background:#fdeceb;border-left-color:var(--danger);}
+  .alto::before{content:"Cuidado";background:#a5281b;}
+  .alto strong{color:#96251a;}
+
+  .vivo{background:#ebf2fc;border-left-color:var(--info);}
+  .vivo::before{content:"El encargo";background:#2a5da8;}
+  .vivo strong{color:#22528f;}
+
+  /* ------------------------------------------------------------------
+     TABLAS
+     ------------------------------------------------------------------ */
+  .tabla-scroll{
+    overflow-x:auto;margin:1.25rem 0;
+    border:1px solid var(--line);border-radius:10px;background:var(--surface);
+  }
+  table{width:100%;border-collapse:collapse;margin:0;font-size:.88rem;min-width:540px;}
+  th,td{text-align:left;padding:.65rem .85rem;border-bottom:1px solid var(--line);vertical-align:top;}
+  thead th{
+    background:var(--acento-suave);color:var(--acento-2);
+    font-weight:800;font-size:.76rem;text-transform:uppercase;letter-spacing:.05em;
+    border-bottom:2px solid var(--acento);
+    position:sticky;top:0;
+  }
+  tbody tr:nth-child(even){background:var(--surface-2);}
+  tbody tr:hover{background:#eef4f8;}
+  tbody tr:last-child td{border-bottom:0;}
+  td.ok{color:var(--brand-dark);font-weight:700;}
+  td.no{color:var(--danger);font-weight:700;}
+
+  /* ------------------------------------------------------------------
+     RETO Y CHECKLIST
+     ------------------------------------------------------------------ */
+  .reto{
+    position:relative;
+    border:2px dashed var(--brand);border-radius:12px;
+    padding:2.2rem 1.35rem 1.15rem;margin-top:1.75rem;
+    background:linear-gradient(180deg,#f4fcf8,#ffffff);
+  }
+  .reto::before{
+    content:"Si terminas antes";position:absolute;top:-.7rem;left:1.1rem;
+    background:var(--brand-dark);color:#fff;
+    font-size:.65rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
+    padding:.2rem .6rem;border-radius:5px;
+  }
+  .reto h4{margin-top:0;color:var(--brand-dark);font-size:1rem;text-transform:none;letter-spacing:0;}
+  .reto p:last-child,.reto ol:last-child{margin-bottom:0;}
+  .reto ol{padding-left:1.3rem;}
+
+  .check{
+    position:relative;
+    background:var(--acento-suave);border:1px solid var(--acento);
+    border-radius:12px;padding:2.2rem 1.35rem 1.2rem;margin-top:1.75rem;
+  }
+  .check::before{
+    content:"Criterios";position:absolute;top:-.7rem;left:1.1rem;
+    background:var(--acento);color:#fff;
+    font-size:.65rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
+    padding:.2rem .6rem;border-radius:5px;
+  }
+  .check h4{margin-top:0;color:var(--acento-2);font-size:1rem;text-transform:none;letter-spacing:0;}
+  .check ul{margin:0;padding-left:0;list-style:none;}
+  .check li{
+    margin-bottom:.5rem;position:relative;padding-left:1.7rem;
+    font-size:.92rem;
+  }
+  .check li::before{
+    content:"";position:absolute;left:0;top:.35em;
+    width:15px;height:15px;border-radius:4px;
+    border:2px solid var(--acento);background:#fff;
+  }
+  .check li:last-child{margin-bottom:0;}
+
+  /* ------------------------------------------------------------------
+     FLUJO Y COMPARACIONES
+     ------------------------------------------------------------------ */
+  .flujo{
+    display:flex;flex-wrap:wrap;align-items:center;gap:.45rem;
+    background:linear-gradient(135deg,#22313f,#161f28);color:#fff;border-radius:12px;
+    padding:1.1rem 1.25rem;margin:1.4rem 0;font-size:.82rem;
+    box-shadow:0 3px 14px rgba(20,30,40,.18);
+  }
+  .flujo span{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:7px;padding:.35rem .7rem;font-weight:700;}
+  .flujo span.hi{background:var(--brand);color:#0b2418;border-color:var(--brand);}
+  .flujo em{color:#8fa3b5;font-style:normal;font-weight:800;}
+
+  .duo{display:grid;grid-template-columns:1fr 1fr;gap:1.1rem;margin:1.1rem 0;}
+  .duo > div{min-width:0;}
+  .duo .file{margin-top:0;}
+  @media (max-width:860px){ .duo{grid-template-columns:1fr;} }
+
+  footer{
+    text-align:center;color:var(--ink-soft);font-size:.85rem;
+    padding:2rem 1rem 0;margin-top:2rem;border-top:1px solid var(--line);
+  }
+
+  /* ------------------------------------------------------------------
+     BOTÓN COPIAR
+     ------------------------------------------------------------------ */
+  .bloque-codigo{position:relative;}
+  .btn-copiar{
+    position:absolute;top:.55rem;right:.55rem;
+    display:inline-flex;align-items:center;gap:.35rem;
+    min-height:32px;padding:0 .7rem;
+    border:1px solid rgba(255,255,255,.22);
+    border-radius:7px;
+    background:rgba(255,255,255,.09);
+    color:#c9d4de;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    font-size:.74rem;font-weight:700;
+    cursor:pointer;opacity:0;
+    transition:opacity .15s ease, background .15s ease, color .15s ease;
+  }
+  .bloque-codigo:hover .btn-copiar,
+  .btn-copiar:focus-visible{opacity:1;}
+  .btn-copiar:hover{background:rgba(66,184,131,.28);color:#fff;border-color:rgba(66,184,131,.65);}
+  .btn-copiar.ok{background:#42b883;color:#0b2418;border-color:#42b883;opacity:1;}
+  .btn-copiar.falla{background:#c0392b;color:#fff;border-color:#c0392b;opacity:1;}
+  @media (hover:none){ .btn-copiar{opacity:1;} }
+
+  /* ------------------------------------------------------------------ */
+  @media (max-width:640px){
+    :root{--barra-alto:48px;}
+    .wrap{padding:1.25rem 1rem 4rem;}
+    section.ejercicio{padding:1.25rem 1rem;border-radius:12px;}
+    section.ejercicio > h2{
+      margin:-1.25rem -1rem 0;padding:1.1rem 1rem;font-size:1.15rem;gap:.6rem;
+    }
+    section.ejercicio > h2::before{width:32px;height:32px;font-size:1rem;}
+    .meta{margin:0 -1rem 1.25rem;padding:.6rem 1rem;font-size:.8rem;}
+    section.ejercicio h3{font-size:1.02rem;padding-left:2.3rem;margin-top:2rem;}
+    section.ejercicio h3::before{width:25px;height:25px;font-size:.74rem;}
+    header.hero{padding:2.25rem 1rem;}
+    header.hero h1{font-size:1.5rem;}
+    pre{font-size:.78rem;padding:.9rem;}
+    .btn-copiar{font-size:.7rem;padding:0 .5rem;}
+  }
+
+  /* ==================================================================
+     COLOREADO DE SINTAXIS
+     Resaltador propio, sin CDN: este archivo tiene que funcionar
+     abierto directamente desde el disco, sin internet.
+     ================================================================== */
+  pre code{
+    --t-com:#7f8fa3;
+    --t-str:#a8d96d;
+    --t-kw:#d296ec;
+    --t-lit:#f89a6a;
+    --t-num:#f89a6a;
+    --t-fn:#7fb5ff;
+    --t-prop:#6fdcc9;
+    --t-op:#92dbf7;
+    --t-tag:#f5838f;
+    --t-attr:#f3cb6d;
+    --t-dir:#5ad79b;
+  }
+  .t-com{color:var(--t-com);font-style:italic;}
+  .t-str{color:var(--t-str);}
+  .t-kw{color:var(--t-kw);font-weight:600;}
+  .t-lit{color:var(--t-lit);}
+  .t-num{color:var(--t-num);}
+  .t-fn{color:var(--t-fn);}
+  .t-prop{color:var(--t-prop);}
+  .t-op{color:var(--t-op);}
+  .t-tag{color:var(--t-tag);}
+  .t-attr{color:var(--t-attr);}
+  .t-dir{color:var(--t-dir);font-weight:600;}
+  .t-interp{color:var(--t-attr);}
+  .t-ruta{color:var(--t-attr);}
+
+  pre[data-lang]{position:relative;}
+  pre[data-lang]::after{
+    content:attr(data-lang);
+    position:absolute;top:.55rem;right:.6rem;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    font-size:.6rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
+    color:rgba(255,255,255,.28);
+    pointer-events:none;transition:opacity .15s ease;
+  }
+  .bloque-codigo:hover pre[data-lang]::after{opacity:0;}
+
+  /* ==================================================================
+     QUÉ ES CADA BLOQUE
+     ================================================================== */
+  pre[data-tipo]{border-left:5px solid #46586e;}
+  pre[data-tipo="solucion"]{border-left-color:var(--brand);}
+  pre[data-tipo="problema"]{border-left-color:var(--danger);}
+  pre[data-tipo="maqueta"]{border-left-color:#5b6b7c;}
+  pre[data-tipo="terminal"]{border-left-color:#7f8fa3;}
+  pre[data-tipo="api"]{border-left-color:#4d8ce0;}
+
+  .file::after{
+    margin-left:.5rem;padding:.1rem .45rem;border-radius:4px;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    font-size:.62rem;font-weight:800;letter-spacing:.09em;
+    flex-shrink:0;align-self:center;
+  }
+  .file--bien::after{content:"TE LO DAMOS";background:rgba(255,255,255,.24);color:#fff;}
+  .file--mal::after{content:"NO COPIAR";background:rgba(0,0,0,.28);color:#ffe2de;}
+
+  .file{scroll-margin-top:calc(var(--barra-alto) + 16px);}
+
+  /* ==================================================================
+     ÍNDICE DE ARCHIVOS ENTREGADOS
+     ================================================================== */
+  .resuelto{
+    margin:0 0 1.75rem;
+    border:1px solid var(--acento);border-radius:11px;
+    background:var(--surface);overflow:hidden;
+  }
+  .resuelto > summary{
+    cursor:pointer;list-style:none;
+    padding:.7rem 1rem;background:var(--acento-suave);
+    display:flex;align-items:center;gap:.55rem;flex-wrap:wrap;
+    font-size:.8rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--acento-2);
+  }
+  .resuelto > summary::-webkit-details-marker{display:none;}
+  .resuelto > summary::before{
+    content:"›";font-size:1.15rem;line-height:1;
+    transition:transform .15s ease;display:inline-block;
+  }
+  .resuelto[open] > summary::before{transform:rotate(90deg);}
+  .resuelto > summary:hover{filter:brightness(.97);}
+  .resuelto__conteo{
+    margin-left:auto;text-transform:none;letter-spacing:0;
+    font-weight:700;font-size:.75rem;color:var(--ink-soft);
+  }
+  .resuelto ol{
+    margin:0;padding:.7rem 1rem .85rem;list-style:none;
+    display:grid;gap:.3rem;counter-reset:archivo;
+  }
+  .resuelto li{counter-increment:archivo;margin:0;font-size:.85rem;}
+  .resuelto li::before{
+    content:counter(archivo);
+    display:inline-flex;align-items:center;justify-content:center;
+    width:19px;height:19px;margin-right:.55rem;border-radius:5px;
+    background:var(--acento);color:#fff;font-size:.66rem;font-weight:800;
+    vertical-align:.05em;
+  }
+  .resuelto a{
+    color:var(--ink);text-decoration:none;font-weight:600;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.83rem;
+    border-bottom:1px dashed transparent;
+  }
+  .resuelto a:hover{color:var(--acento-2);border-bottom-color:var(--acento);}
+  .resuelto__nota{
+    margin:0;padding:0 1rem .85rem;
+    font-size:.78rem;color:var(--ink-soft);
+  }
+
+  @media print{
+    body{padding-top:0;background:#fff;}
+    .barra-fija,.btn-copiar{display:none !important;}
+    pre[data-lang]::after{display:none;}
+    section.ejercicio{break-inside:avoid;box-shadow:none;border:1px solid #ccc;}
+    pre{box-shadow:none;}
+    .resuelto{break-inside:avoid;}
+    .resuelto[open] > summary::before{transform:none;}
+  }
+
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="wrap">
+    <span class="badge">Módulo 7 · Lección 4 · Actividad práctica III</span>
+    <h1>Los Aromos: probar la reserva de canchas <em>de principio a fin</em></h1>
+    <p>
+      En las actividades anteriores probaste piezas sueltas de código, sin navegador. Acá es al revés:
+      la aplicación se levanta entera y tú escribes un programa que <strong>la usa como la usaría un
+      socio del complejo</strong> — entra, filtra, reserva — y comprueba que hace lo que promete.
+    </p>
+    <p>
+      Cinco requisitos, <strong>22 escenarios</strong>. Todo con Cypress, sin trucos y sin conocimientos
+      previos de pruebas: lo que necesitas está en la práctica en vivo de hoy y en este documento.
+    </p>
+    <p>
+      Este documento <strong>no trae los escenarios resueltos</strong>. Trae la aplicación que hay que
+      probar, la lista de casos y los criterios con los que se revisa tu entrega.
+    </p>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="vivo">
+    <strong>El encargo</strong>
+    <p>
+      El <strong>Complejo Deportivo Los Aromos</strong> arrendaba sus canchas por WhatsApp. Este año
+      estrenó una aplicación: el socio entra con su correo, ve las canchas libres del día, filtra por
+      tipo y reserva la que quiera.
+    </p>
+    <p>
+      Hay una regla del complejo, y es la que importa: <strong>cada socio puede tomar como máximo dos
+      canchas al día.</strong> Sin eso, tres personas se llevan el recinto completo y el resto se queda
+      afuera.
+    </p>
+    <p>
+      La aplicación está entregada y <strong>no tiene ni una prueba</strong>. Te contratan para
+      cubrirla antes de que se abra al público el lunes.
+    </p>
+  </div>
+
+  <div class="alto">
+    <strong>Hay un defecto escondido. Uno solo.</strong>
+    <p>
+      Está en la pantalla de canchas y tiene que ver con la <strong>regla de las dos reservas</strong>.
+      No te voy a decir cuál es.
+    </p>
+    <p>
+      Si escribes los escenarios que se te piden, <strong>uno de tus tests se va a poner rojo</strong>.
+      Cuando pase: <strong>arreglas la aplicación, nunca el test</strong>, y lo cuentas en el README.
+    </p>
+    <p>
+      Pista de método, no de contenido: cuando una regla dice «<em>máximo N</em>», en el código hay casi
+      siempre una comparación con ese N. Los defectos de esta familia no viven en el número — viven en
+      el <strong>signo</strong> de la comparación. Léela en voz alta antes de creerle.
+    </p>
+  </div>
+
+  <div class="ojo">
+    <strong>Qué se evalúa y qué no.</strong>
+    <p>
+      Se evalúa que tus escenarios <strong>describan lo que hace una persona</strong>, no cómo está
+      construida la pantalla; que <strong>ningún test dependa de otro</strong>; y que
+      <strong>no haya ni una espera por tiempo</strong>.
+    </p>
+    <p>
+      Se evalúa también que <strong>todos los selectores sean <code>data-cy</code></strong>. Un test que
+      pasa buscando por clase CSS igual se descuenta: pasa hoy y se cae en el próximo rediseño.
+    </p>
+    <p>
+      <strong>No</strong> se evalúa la cantidad de tests. Veintidós escenarios bien elegidos valen más
+      que sesenta repetidos — en end-to-end, de más es un defecto, no una virtud.
+    </p>
+  </div>
+
+  <nav class="toc">
+    <h2>Ruta de trabajo</h2>
+    <ol>
+      <li><a href="#prep">De dónde partes</a> <span class="min">· proyecto, Cypress y la aplicación que hay que probar</span></li>
+      <li><a href="#ej1"><strong>Requisito 1</strong> — Abrir y mirar</a> <span class="min">· <code>visit</code>, <code>get</code>, <code>should</code> · 4 escenarios</span></li>
+      <li><a href="#ej2"><strong>Requisito 2</strong> — El acceso</a> <span class="min">· <code>type</code>, <code>click</code>, <code>url</code> · 5 escenarios</span></li>
+      <li><a href="#ej3"><strong>Requisito 3</strong> — La lista y el filtro</a> <span class="min">· <code>select</code>, <code>each</code> · 5 escenarios</span></li>
+      <li><a href="#ej4"><strong>Requisito 4</strong> — Cuando el servidor falla</a> <span class="min">· <code>cy.intercept</code> · 5 escenarios</span></li>
+      <li><a href="#ej5"><strong>Requisito 5</strong> — Comandos propios y la regla del negocio</a> <span class="min">· 3 escenarios · acá está el defecto</span></li>
+      <li><a href="#cierre">Cómo se revisa · Errores que te van a pasar · Si terminas antes</a></li>
+    </ol>
+  </nav>
+
+<!-- ================================================================ -->
+<section class="ejercicio" id="prep">
+  <h2>De dónde partes</h2>
+  <p class="meta"><strong>Antes de escribir un solo <code>it</code>.</strong> Crea el proyecto, pega los archivos que te entregamos y comprueba que el escenario de ejemplo pasa en verde.</p>
+
+  <h3>Paso 1 — El proyecto y las dependencias</h3>
+
+  <span class="file file--term">Terminal</span>
+<pre><code># Crea la carpeta con una app Vue basica ya adentro
+npm create vite@latest reservas-e2e -- --template vue
+cd reservas-e2e
+npm install
+
+# vue-router: le da direccion propia a cada pantalla (/acceso, /canchas)
+npm install vue-router
+
+# Cypress. El -D es "dependencia de desarrollo": herramienta tuya,
+# no viaja al producto que ve el socio del club.
+npm install -D cypress</code></pre>
+
+  <div class="ojo">
+    <strong>La primera instalación de Cypress descarga unos 200 MB.</strong>
+    <p>
+      Trae su propio navegador. Se baja una sola vez y queda guardada en tu sistema, no dentro de
+      <code>node_modules</code>. Si estás en clase con el wifi compartido, <strong>parte por
+      acá</strong> y sigue leyendo mientras baja.
+    </p>
+  </div>
+
+  <h3>Paso 2 — La aplicación (te la damos entera)</h3>
+
+  <p>
+    Siete archivos. <strong>Cópialos tal cual</strong> — hoy no se evalúa que sepas construir la
+    aplicación, se evalúa que sepas probarla. De cada uno te decimos en una línea qué hace.
+  </p>
+
+  <p>
+    <strong>La configuración de Vite, con el servidor de datos de la clase adentro.</strong> Ese
+    servidor guarda las canchas en memoria y responde en <code>/api</code>. Fíjate en
+    <code>/api/reset</code>: es la dirección que te va a permitir que cada escenario parta desde el
+    mismo punto.
+  </p>
+
+  <span class="file">vite.config.js</span>
+<pre><code>import { fileURLToPath, URL } from 'node:url'
+import { defineConfig } from 'vite'
+import vue from '@vitejs/plugin-vue'
+
+// ── SERVIDOR DE DATOS DE LA CLASE ─────────────────────────────────
+// Cuatro canchas libres y un contador de reservas del dia.
+// Todo en memoria: al apagar el servidor se olvida.
+const SEMILLA = () =&gt; ([
+  { id: 'C-01', nombre: 'Cancha 1', tipo: 'futbolito', hora: '19:00', valor: 24000 },
+  { id: 'C-02', nombre: 'Cancha 2', tipo: 'futbolito', hora: '20:00', valor: 24000 },
+  { id: 'C-03', nombre: 'Cancha 3', tipo: 'padel',     hora: '19:30', valor: 16000 },
+  { id: 'C-04', nombre: 'Cancha 4', tipo: 'padel',     hora: '21:00', valor: 18000 }
+])
+
+function apiDeClase() {
+  let canchas = SEMILLA()
+  let reservasDelDia = 0
+
+  const leerCuerpo = (req) =&gt; new Promise((listo) =&gt; {
+    let crudo = ''
+    req.on('data', (trozo) =&gt; { crudo += trozo })
+    req.on('end', () =&gt; listo(crudo ? JSON.parse(crudo) : {}))
+  })
+
+  return {
+    name: 'api-de-clase',
+    configureServer(server) {
+      // Al montar en '/api' el prefijo se recorta:
+      // /api/canchas llega aca como /canchas.
+      server.middlewares.use('/api', async (req, res, next) =&gt; {
+        const ruta = req.url.split('?')[0]
+        res.setHeader('Content-Type', 'application/json')
+
+        if (req.method === 'POST' &amp;&amp; ruta === '/acceso') {
+          const { correo, clave } = await leerCuerpo(req)
+          const ok = correo === 'vecino@losaromos.cl' &amp;&amp; clave === 'cancha2026'
+          res.statusCode = ok ? 200 : 401
+          return res.end(JSON.stringify(
+            ok ? { token: 'token-de-clase', nombre: 'Rosa Miranda' }
+               : { mensaje: 'Correo o clave incorrectos' }
+          ))
+        }
+
+        if (req.method === 'GET' &amp;&amp; ruta === '/canchas') {
+          return res.end(JSON.stringify({ canchas, reservasDelDia }))
+        }
+
+        if (req.method === 'POST' &amp;&amp; /^\/canchas\/[^/]+\/reservar$/.test(ruta)) {
+          const id = ruta.split('/')[2]
+          canchas = canchas.filter((c) =&gt; c.id !== id)
+          reservasDelDia = reservasDelDia + 1
+          return res.end(JSON.stringify({ ok: true, reservasDelDia }))
+        }
+
+        // Deja todo como recien instalado.
+        if (req.method === 'POST' &amp;&amp; ruta === '/reset') {
+          canchas = SEMILLA()
+          reservasDelDia = 0
+          return res.end(JSON.stringify({ ok: true }))
+        }
+
+        next()
+      })
+    }
+  }
+}
+
+export default defineConfig({
+  plugins: [vue(), apiDeClase()],
+  resolve: {
+    alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) }
+  },
+  // Puerto fijo: si Vite se cambia solo al 5174, la baseUrl de Cypress
+  // apunta a ninguna parte y todos tus tests fallan igual.
+  server: { port: 5173, strictPort: true }
+})</code></pre>
+
+  <p>
+    <strong>La única salida a la red.</strong> Todo lo que la aplicación le pide al servidor pasa por
+    acá. Que sea una sola puerta es lo que después te va a permitir interceptarla desde un test.
+  </p>
+
+  <span class="file">src/servicios/api.js</span>
+<pre><code>const BASE = '/api'
+
+export async function entrar(correo, clave) {
+  const respuesta = await fetch(`${BASE}/acceso`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ correo, clave })
+  })
+  const datos = await respuesta.json()
+  if (!respuesta.ok) throw new Error(datos.mensaje || 'No pudimos validar tus datos')
+  return datos
+}
+
+export async function obtenerCanchas() {
+  const respuesta = await fetch(`${BASE}/canchas`)
+  if (!respuesta.ok) throw new Error('No pudimos cargar las canchas')
+  return respuesta.json()
+}
+
+export async function reservarCancha(id) {
+  const respuesta = await fetch(`${BASE}/canchas/${id}/reservar`, { method: 'POST' })
+  if (!respuesta.ok) throw new Error('No pudimos tomar la reserva')
+  return respuesta.json()
+}</code></pre>
+
+  <p>
+    <strong>Recuerda quién entró.</strong> <code>localStorage</code> es una libretita que el navegador
+    guarda por cada sitio y que sobrevive a un F5.
+  </p>
+
+  <span class="file">src/sesion.js</span>
+<pre><code>import { ref } from 'vue'
+
+export const socio = ref(JSON.parse(localStorage.getItem('sesion-aromos') || 'null'))
+
+export function guardarSesion(datos) {
+  socio.value = datos
+  localStorage.setItem('sesion-aromos', JSON.stringify(datos))
+}
+
+export function cerrarSesion() {
+  socio.value = null
+  localStorage.removeItem('sesion-aromos')
+}</code></pre>
+
+  <p>
+    <strong>Decide qué pantalla se ve según la dirección.</strong> Al final hay un guardia: una función
+    que corre antes de cada cambio de pantalla y devuelve al acceso a quien no tenga sesión.
+  </p>
+
+  <span class="file">src/router.js</span>
+<pre><code>import { createRouter, createWebHistory } from 'vue-router'
+import VistaAcceso from '@/vistas/VistaAcceso.vue'
+import VistaCanchas from '@/vistas/VistaCanchas.vue'
+import { socio } from '@/sesion.js'
+
+export const router = createRouter({
+  history: createWebHistory(),
+  routes: [
+    { path: '/',        redirect: '/canchas' },
+    { path: '/acceso',  name: 'acceso',  component: VistaAcceso },
+    { path: '/canchas', name: 'canchas', component: VistaCanchas, meta: { privada: true } }
+  ]
+})
+
+router.beforeEach((destino) =&gt; {
+  if (destino.meta.privada &amp;&amp; !socio.value) return { name: 'acceso' }
+})</code></pre>
+
+  <p>
+    <strong>La pantalla de acceso.</strong> Mírala entre <code>&lt;template&gt;</code> y
+    <code>&lt;/template&gt;</code>: ahí están los <code>data-cy</code> que vas a usar.
+  </p>
+
+  <span class="file">src/vistas/VistaAcceso.vue</span>
+<pre><code>&lt;script setup&gt;
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { entrar } from '@/servicios/api.js'
+import { guardarSesion } from '@/sesion.js'
+
+const correo = ref('')
+const clave = ref('')
+const error = ref('')
+const enviando = ref(false)
+const router = useRouter()
+
+async function enviar() {
+  error.value = ''
+  enviando.value = true
+  try {
+    guardarSesion(await entrar(correo.value, clave.value))
+    router.push('/canchas')
+  } catch (e) {
+    error.value = e.message
+  } finally {
+    enviando.value = false
+  }
+}
+&lt;/script&gt;
+
+&lt;template&gt;
+  &lt;main class="acceso"&gt;
+    &lt;h1&gt;Complejo Los Aromos&lt;/h1&gt;
+    &lt;p&gt;Reserva tu cancha del dia&lt;/p&gt;
+
+    &lt;form data-cy="form-acceso" @submit.prevent="enviar"&gt;
+      &lt;label for="correo"&gt;Correo&lt;/label&gt;
+      &lt;input id="correo" data-cy="correo" v-model="correo" type="email" required&gt;
+
+      &lt;label for="clave"&gt;Clave&lt;/label&gt;
+      &lt;input id="clave" data-cy="clave" v-model="clave" type="password" required&gt;
+
+      &lt;button data-cy="entrar" type="submit" :disabled="enviando"&gt;
+        {{ enviando ? 'Entrando…' : 'Entrar' }}
+      &lt;/button&gt;
+    &lt;/form&gt;
+
+    &lt;p v-if="error" data-cy="error-acceso" role="alert"&gt;{{ error }}&lt;/p&gt;
+  &lt;/main&gt;
+&lt;/template&gt;</code></pre>
+
+  <p>
+    <strong>La pantalla de canchas.</strong> Es la importante. Tiene el filtro, los cuatro estados y la
+    regla de las dos reservas.
+  </p>
+
+  <span class="file">src/vistas/VistaCanchas.vue</span>
+<pre><code>&lt;script setup&gt;
+import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { obtenerCanchas, reservarCancha } from '@/servicios/api.js'
+import { cerrarSesion, socio } from '@/sesion.js'
+
+const LIMITE_DIARIO = 2
+
+const canchas = ref([])
+const reservasDelDia = ref(0)
+const cargando = ref(false)
+const error = ref('')
+const tipo = ref('todas')
+const router = useRouter()
+
+const visibles = computed(() =&gt;
+  tipo.value === 'todas'
+    ? canchas.value
+    : canchas.value.filter((c) =&gt; c.tipo === tipo.value)
+)
+
+// Regla del complejo: cada socio toma como maximo 2 canchas al dia.
+const limiteAlcanzado = computed(() =&gt; reservasDelDia.value &gt; LIMITE_DIARIO)
+
+async function cargar() {
+  cargando.value = true
+  error.value = ''
+  try {
+    const datos = await obtenerCanchas()
+    canchas.value = datos.canchas
+    reservasDelDia.value = datos.reservasDelDia
+  } catch {
+    error.value = 'No pudimos cargar las canchas. Intenta nuevamente.'
+  } finally {
+    cargando.value = false
+  }
+}
+
+async function reservar(id) {
+  const datos = await reservarCancha(id)
+  reservasDelDia.value = datos.reservasDelDia
+  canchas.value = canchas.value.filter((c) =&gt; c.id !== id)
+}
+
+function salir() {
+  cerrarSesion()
+  router.push('/acceso')
+}
+
+onMounted(cargar)
+&lt;/script&gt;
+
+&lt;template&gt;
+  &lt;main class="canchas"&gt;
+    &lt;header&gt;
+      &lt;h1&gt;Canchas disponibles hoy&lt;/h1&gt;
+      &lt;p data-cy="socio"&gt;{{ socio?.nombre }}&lt;/p&gt;
+      &lt;p data-cy="contador"&gt;Reservas de hoy: {{ reservasDelDia }} de {{ LIMITE_DIARIO }}&lt;/p&gt;
+      &lt;button data-cy="salir" type="button" @click="salir"&gt;Salir&lt;/button&gt;
+    &lt;/header&gt;
+
+    &lt;label for="tipo"&gt;Tipo de cancha&lt;/label&gt;
+    &lt;select id="tipo" data-cy="filtro-tipo" v-model="tipo"&gt;
+      &lt;option value="todas"&gt;Todas&lt;/option&gt;
+      &lt;option value="futbolito"&gt;Futbolito&lt;/option&gt;
+      &lt;option value="padel"&gt;Padel&lt;/option&gt;
+      &lt;option value="tenis"&gt;Tenis&lt;/option&gt;
+    &lt;/select&gt;
+
+    &lt;p v-if="limiteAlcanzado" data-cy="aviso-limite"&gt;
+      Ya tomaste tus {{ LIMITE_DIARIO }} canchas de hoy.
+    &lt;/p&gt;
+
+    &lt;p v-if="cargando" data-cy="cargando"&gt;Cargando las canchas…&lt;/p&gt;
+
+    &lt;div v-else-if="error" data-cy="error-canchas" role="alert"&gt;
+      &lt;p&gt;{{ error }}&lt;/p&gt;
+      &lt;button data-cy="reintentar" type="button" @click="cargar"&gt;Reintentar&lt;/button&gt;
+    &lt;/div&gt;
+
+    &lt;p v-else-if="visibles.length === 0" data-cy="vacio"&gt;
+      No hay canchas de ese tipo disponibles.
+    &lt;/p&gt;
+
+    &lt;ul v-else data-cy="lista"&gt;
+      &lt;li v-for="c in visibles" :key="c.id" data-cy="cancha" :data-id="c.id"&gt;
+        &lt;span data-cy="nombre"&gt;{{ c.nombre }}&lt;/span&gt;
+        &lt;span data-cy="tipo"&gt;{{ c.tipo }}&lt;/span&gt;
+        &lt;span data-cy="hora"&gt;{{ c.hora }}&lt;/span&gt;
+        &lt;span data-cy="valor"&gt;${{ c.valor }}&lt;/span&gt;
+        &lt;button
+          data-cy="reservar"
+          type="button"
+          :disabled="limiteAlcanzado"
+          @click="reservar(c.id)"
+        &gt;Reservar&lt;/button&gt;
+      &lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/main&gt;
+&lt;/template&gt;</code></pre>
+
+  <p>
+    <strong>El armazón.</strong> Arrancan la aplicación y muestran la pantalla que toque. Cópialos y
+    olvídate.
+  </p>
+
+  <span class="file">src/main.js</span>
+<pre><code>import { createApp } from 'vue'
+import App from './App.vue'
+import { router } from './router.js'
+import './style.css'
+
+createApp(App).use(router).mount('#app')</code></pre>
+
+  <span class="file">src/App.vue</span>
+<pre><code>&lt;template&gt;
+  &lt;RouterView /&gt;
+&lt;/template&gt;</code></pre>
+
+  <h3>Paso 3 — Cypress</h3>
+
+  <p>
+    Necesitas <strong>dos terminales abiertas al mismo tiempo</strong>: en la primera dejas la
+    aplicación funcionando y no la cierras en toda la actividad; en la segunda abres Cypress.
+  </p>
+
+  <span class="file file--term">Terminal 1 — la aplicación</span>
+<pre><code>npm run dev
+
+# ➜  Local: http://localhost:5173/</code></pre>
+
+  <span class="file file--term">Terminal 2 — Cypress</span>
+<pre><code>npx cypress open</code></pre>
+
+  <p>
+    Elige <strong>E2E Testing</strong>, deja que genere los archivos que te propone y elige el
+    navegador. Te va a quedar creada la carpeta <code>cypress/</code>. Después reemplaza la
+    configuración por ésta:
+  </p>
+
+  <span class="file">cypress.config.js</span>
+<pre><code>import { defineConfig } from 'cypress'
+
+export default defineConfig({
+  e2e: {
+    // Con esto, cy.visit('/acceso') ya sabe a donde ir
+    baseUrl: 'http://localhost:5173',
+
+    specPattern: 'cypress/e2e/**/*.cy.js',
+    supportFile: 'cypress/support/e2e.js',
+
+    viewportWidth: 1280,
+    viewportHeight: 800,
+    defaultCommandTimeout: 4000,
+    video: false
+  }
+})</code></pre>
+
+  <span class="file">package.json</span>
+<pre><code>{
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+
+    "cy:open": "cypress open",
+    "cy:run": "cypress run"
+  }
+}</code></pre>
+
+  <h3>Paso 4 — El escenario de ejemplo, resuelto</h3>
+
+  <p>
+    Éste te lo damos escrito para que veas la forma. Los <strong>22 que vienen después los escribes
+    tú</strong>.
+  </p>
+
+  <span class="file">cypress/e2e/00-ejemplo.cy.js</span>
+<pre><code>describe('El complejo esta en pie', () =&gt; {
+  it('la pantalla de acceso se abre en el navegador', () =&gt; {
+    cy.visit('/acceso')
+    cy.contains('h1', 'Complejo Los Aromos').should('be.visible')
+  })
+
+  it('el servidor de canchas responde', () =&gt; {
+    // cy.request golpea el servidor directo, sin pasar por la pantalla.
+    // Sirve para comprobar el backend y para preparar datos.
+    cy.request('/api/canchas')
+      .its('status')
+      .should('eq', 200)
+  })
+})</code></pre>
+
+  <span class="file file--term">Terminal 2</span>
+<pre><code>npm run cy:run
+
+  El complejo esta en pie
+    ✓ la pantalla de acceso se abre en el navegador (588ms)
+    ✓ el servidor de canchas responde (41ms)
+
+  2 passing (1s)</code></pre>
+
+  <h3>Paso 5 — Los datos con los que vas a trabajar</h3>
+
+  <p>
+    Todos tus escenarios parten de este estado. Apréndetelo: la mitad de tus aserciones son números
+    que salen de esta tabla.
+  </p>
+
+  <div class="tabla-scroll">
+    <table>
+      <thead><tr><th><code>data-id</code></th><th>Nombre</th><th>Tipo</th><th>Hora</th><th>Valor</th></tr></thead>
+      <tbody>
+        <tr><td><code>C-01</code></td><td>Cancha 1</td><td>futbolito</td><td>19:00</td><td>$24000</td></tr>
+        <tr><td><code>C-02</code></td><td>Cancha 2</td><td>futbolito</td><td>20:00</td><td>$24000</td></tr>
+        <tr><td><code>C-03</code></td><td>Cancha 3</td><td>padel</td><td>19:30</td><td>$16000</td></tr>
+        <tr><td><code>C-04</code></td><td>Cancha 4</td><td>padel</td><td>21:00</td><td>$18000</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="nota">
+    <strong>Fíjate: hay futbolito y hay pádel, pero no hay ni una cancha de tenis.</strong>
+    <p>
+      El filtro sí tiene la opción «Tenis». Eso no es un descuido del enunciado: es el
+      <strong>estado vacío</strong>, y es uno de los escenarios que tienes que probar.
+    </p>
+  </div>
+
+  <span class="file file--api">Lo que responde GET /api/canchas</span>
+<pre><code>{
+  "reservasDelDia": 0,
+  "canchas": [
+    { "id": "C-01", "nombre": "Cancha 1", "tipo": "futbolito", "hora": "19:00", "valor": 24000 }
+  ]
+}</code></pre>
+
+  <div class="ojo">
+    <strong>Anota esa forma: es un objeto, no un arreglo.</strong>
+    <p>
+      Cuando en el Requisito 4 tengas que dictarle la respuesta al servidor, tu respuesta falsa tiene
+      que tener <strong>exactamente esta forma</strong> — con las dos llaves,
+      <code>canchas</code> y <code>reservasDelDia</code>. Si le entregas un arreglo pelado, la
+      pantalla revienta y vas a creer que Cypress está fallando.
+    </p>
+  </div>
+
+  <h3>Paso 6 — Las credenciales y las direcciones</h3>
+
+  <div class="tabla-scroll">
+    <table>
+      <thead><tr><th>Qué</th><th>Valor</th></tr></thead>
+      <tbody>
+        <tr><td>Correo del socio</td><td><code>vecino@losaromos.cl</code></td></tr>
+        <tr><td>Clave</td><td><code>cancha2026</code></td></tr>
+        <tr><td>Nombre que muestra la pantalla</td><td>Rosa Miranda</td></tr>
+        <tr><td>Pantalla de acceso</td><td><code>/acceso</code></td></tr>
+        <tr><td>Pantalla de canchas (protegida)</td><td><code>/canchas</code></td></tr>
+        <tr><td>Dejar los datos como al principio</td><td><code>cy.request('POST', '/api/reset')</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="check">
+    <h4>No sigas hasta que se cumpla esto</h4>
+    <ul>
+      <li><code>npm run dev</code> muestra la pantalla de acceso en <code>localhost:5173</code>.</li>
+      <li>Entras con las credenciales de arriba y ves las 4 canchas.</li>
+      <li><code>npm run cy:run</code> pasa los 2 escenarios de ejemplo.</li>
+      <li>Entiendes por qué necesitas dos terminales.</li>
+      <li>Sabes para qué existe <code>/api/reset</code>.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<section class="ejercicio" id="ej1">
+  <h2>Requisito 1 — Abrir y mirar</h2>
+  <p class="meta"><strong>Entregable:</strong> <code>cypress/e2e/01-primeros-pasos.cy.js</code> · <strong>4 escenarios</strong> · Sin escribir en ningún campo todavía.</p>
+
+  <h3>Qué se necesita</h3>
+
+  <p>
+    Antes de manejar la aplicación hay que saber <strong>mirarla</strong>. Estos cuatro escenarios no
+    tocan nada: abren una dirección y comprueban qué se ve. Es el piso de todo lo demás.
+  </p>
+
+  <div class="tabla-scroll">
+    <table>
+      <thead><tr><th>#</th><th>Situación</th><th>Qué tienes que comprobar</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>Visito <code>/acceso</code></td><td>El título <code>&lt;h1&gt;</code> «Complejo Los Aromos» <strong>se ve</strong> en pantalla</td></tr>
+        <tr><td>2</td><td>Visito <code>/acceso</code></td><td>El formulario se ve, y los campos de correo y clave parten <strong>vacíos</strong></td></tr>
+        <tr><td>3</td><td>Visito <code>/acceso</code></td><td>El botón dice <strong>«Entrar»</strong> y está <strong>habilitado</strong></td></tr>
+        <tr><td>4</td><td>Visito <code>/canchas</code> <strong>sin haber entrado</strong></td><td>Termino en <code>/acceso</code>, con el formulario a la vista</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Las herramientas que necesitas</h3>
+
+  <div class="tabla-scroll">
+    <table>
+      <thead><tr><th>Orden</th><th>Qué hace</th></tr></thead>
+      <tbody>
+        <tr><td><code>cy.visit('/acceso')</code></td><td>Abre esa dirección, como escribirla en la barra y apretar Enter</td></tr>
+        <tr><td><code>cy.get('[data-cy="…"]')</code></td><td>Busca un elemento por su manilla</td></tr>
+        <tr><td><code>cy.contains('h1', 'texto')</code></td><td>Busca un <code>&lt;h1&gt;</code> cuyo texto incluya eso</td></tr>
+        <tr><td><code>cy.url()</code></td><td>La dirección completa del navegador en este momento</td></tr>
+        <tr><td><code>.should('be.visible')</code></td><td>Existe <em>y</em> se ve</td></tr>
+        <tr><td><code>.should('have.value', '')</code></td><td>El contenido de un campo de formulario</td></tr>
+        <tr><td><code>.should('be.enabled')</code></td><td>El control se puede usar</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="nota">
+    <strong>El escenario 4 es el que le da sentido a toda la actividad.</strong>
+    <p>
+      Esa regla —«sin sesión no entras»— no vive en la pantalla de canchas ni en el archivo de sesión:
+      vive en <strong>la unión</strong> entre el guardia del router y el almacenamiento del navegador.
+      Ninguna prueba de una pieza suelta la habría visto. Ésa es, literalmente, la razón de existir de
+      las pruebas end-to-end.
+    </p>
+  </div>
+
+  <div class="ojo">
+    <strong>Sobre el escenario 4: no basta con mirar la dirección.</strong>
+    <p>
+      Un test que solo comprueba la URL puede pasar aunque la pantalla haya quedado en blanco.
+      Comprueba las <strong>dos</strong> cosas: que la dirección es la del acceso <em>y</em> que el
+      formulario se ve.
+    </p>
+  </div>
+
+  <h3>Criterios de aceptación</h3>
+
+  <div class="check">
+    <h4>Se revisa esto, uno por uno</h4>
+    <ul>
+      <li>Los 4 escenarios están dentro de <strong>un solo</strong> <code>describe</code> con nombre en castellano.</li>
+      <li>Cada <code>it</code> se llama por lo que <strong>hace el usuario</strong>, no por el comando que usaste. «muestra el formulario de acceso», no «test cy.get».</li>
+      <li>Todos los selectores son <code>data-cy</code>. Cero clases CSS, cero <code>nth-child</code>.</li>
+      <li>El escenario 2 usa <code>have.value</code> con la cadena vacía, no <code>be.empty</code>.</li>
+      <li>El escenario 4 comprueba la dirección <strong>y</strong> que el formulario se ve.</li>
+      <li>No hay ni un <code>cy.wait</code> con un número.</li>
+      <li>La visita a la dirección está repetida en cada <code>it</code>, o sacada a un <code>beforeEach</code>. Las dos valen; lo que no vale es que un <code>it</code> dependa de que otro haya visitado antes.</li>
+    </ul>
+  </div>
+
+  <div class="alto">
+    <strong>El error silencioso que te va a costar puntos:</strong> guardar el resultado en una
+    variable. <code>const titulo = cy.get('h1')</code> no te devuelve el título — te devuelve la cadena
+    de Cypress. La comprobación va <strong>pegada con un punto</strong>:
+    <code>cy.get('h1').should(…)</code>.
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<section class="ejercicio" id="ej2">
+  <h2>Requisito 2 — El acceso</h2>
+  <p class="meta"><strong>Entregable:</strong> <code>cypress/e2e/02-acceso.cy.js</code> · <strong>5 escenarios</strong> · Acá empiezas a manejar la aplicación.</p>
+
+  <h3>Qué se necesita</h3>
+
+  <p>
+    El trámite completo de entrar: con las credenciales buenas, con las malas, con el teclado y
+    saliendo. Es el flujo que más se usa y el que menos se prueba.
+  </p>
+
+  <div class="tabla-scroll">
+    <table>
+      <thead><tr><th>#</th><th>Situación</th><th>Qué tienes que comprobar</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td>Escribo <code>vecino@losaromos.cl</code> / <code>cancha2026</code> y hago clic en «Entrar»</td>
+          <td>Llego a <code>/canchas</code>, se ve <strong>Rosa Miranda</strong> y hay <strong>4</strong> canchas</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>Escribo un correo que no existe y una clave cualquiera</td>
+          <td>Aparece el mensaje <strong>«Correo o clave incorrectos»</strong>, sigo en <code>/acceso</code> y el formulario se ve</td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td>Ese mismo intento fallido</td>
+          <td>El mensaje <strong>no contiene el número 401</strong> ni la palabra «error» en inglés</td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td>Escribo las credenciales buenas y aprieto <strong>Enter</strong>, sin tocar el botón</td>
+          <td>Entro igual: llego a <code>/canchas</code></td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td>Ya adentro, hago clic en «Salir»</td>
+          <td>Vuelvo a <code>/acceso</code>, y si intento visitar <code>/canchas</code> <strong>me devuelve otra vez</strong></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Las herramientas nuevas</h3>
+
+  <div class="tabla-scroll">
+    <table>
+      <thead><tr><th>Orden</th><th>Qué hace</th></tr></thead>
+      <tbody>
+        <tr><td><code>.type('texto')</code></td><td>Escribe tecla por tecla, como una persona</td></tr>
+        <tr><td><code>.type('clave{enter}')</code></td><td>Escribe y después aprieta Enter — así se resuelve el escenario 4</td></tr>
+        <tr><td><code>.click()</code></td><td>Hace clic</td></tr>
+        <tr><td><code>.should('contain', 'texto')</code></td><td>El texto está dentro (parcial)</td></tr>
+        <tr><td><code>.should('not.contain', '401')</code></td><td>El texto <strong>no</strong> está</td></tr>
+        <tr><td><code>.and(…)</code></td><td>Una segunda comprobación sobre lo mismo, para no repetir el <code>cy.get</code></td></tr>
+        <tr><td><code>.should('not.exist')</code></td><td>El elemento no está en la página</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="nota">
+    <strong>El escenario 3 parece un capricho y es el más profesional de los cinco.</strong>
+    <p>
+      Un mensaje que le tira al socio del club un «Error 401» no le sirve de nada: no sabe qué hacer
+      con eso. Comprobar que <em>no</em> aparece el número técnico es comprobar que alguien tradujo el
+      fallo a lenguaje humano. Eso es calidad de producto, y se prueba igual que todo lo demás.
+    </p>
+  </div>
+
+  <div class="ojo">
+    <strong>Pista sobre el escenario 5.</strong>
+    <p>
+      «Salir» tiene que hacer dos cosas: llevarte a <code>/acceso</code> <strong>y</strong> borrar la
+      sesión. Si solo comprobaras la primera, un botón que navega pero se olvida de borrar pasaría el
+      test — y cualquiera que escriba <code>/canchas</code> en la barra entraría con la sesión del
+      anterior. Por eso el escenario pide <em>volver a intentar</em> entrar a <code>/canchas</code>.
+    </p>
+  </div>
+
+  <h3>Criterios de aceptación</h3>
+
+  <div class="check">
+    <h4>Se revisa esto, uno por uno</h4>
+    <ul>
+      <li>Hay un <code>beforeEach</code> que deja el sistema en estado conocido: <code>cy.request('POST', '/api/reset')</code>.</li>
+      <li>El escenario 4 usa <code>{enter}</code> dentro del <code>.type()</code>. <strong>No</strong> hace clic en el botón.</li>
+      <li>El escenario 2 comprueba <strong>las tres</strong> cosas: mensaje, dirección y formulario visible.</li>
+      <li>El escenario 5 comprueba que <code>/canchas</code> sigue protegida <em>después</em> de salir.</li>
+      <li>Usas <code>.and()</code> al menos una vez, en vez de repetir el mismo <code>cy.get</code>.</li>
+      <li>Ningún escenario depende de otro: puedes correr cualquiera solo y pasa igual.</li>
+      <li>Sigue sin haber ni un <code>cy.wait</code> con un número.</li>
+    </ul>
+  </div>
+
+  <div class="alto">
+    <strong>Te vas a topar con esto:</strong> después del clic en «Entrar» pasan varias cosas —cambia
+    la pantalla, sale la petición, llega la respuesta, se dibuja la lista— y todo eso demora. La
+    tentación es meter una espera. <strong>No la metas.</strong> Cypress ya vuelve a mirar la página
+    hasta que tu comprobación se cumple. Si te sale rojo, el problema es tu selector, no el tiempo.
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<section class="ejercicio" id="ej3">
+  <h2>Requisito 3 — La lista y el filtro</h2>
+  <p class="meta"><strong>Entregable:</strong> <code>cypress/e2e/03-lista.cy.js</code> · <strong>5 escenarios</strong> · Acá aparece el estado vacío.</p>
+
+  <h3>Qué se necesita</h3>
+
+  <p>
+    La pantalla de canchas con datos reales: contarlas, revisarlas una por una y filtrarlas por tipo.
+    Acuérdate de la tabla del <a href="#prep">Paso 5</a>: 4 canchas, 2 de futbolito, 2 de pádel,
+    <strong>ninguna de tenis</strong>.
+  </p>
+
+  <div class="tabla-scroll">
+    <table>
+      <thead><tr><th>#</th><th>Situación</th><th>Qué tienes que comprobar</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>Entro y llego a la lista</td><td>Hay exactamente <strong>4</strong> canchas</td></tr>
+        <tr><td>2</td><td>Reviso la lista completa</td><td><strong>Cada</strong> cancha muestra nombre, tipo, hora y valor <strong>no vacíos</strong>, y su botón «Reservar» está habilitado</td></tr>
+        <tr><td>3</td><td>Elijo <strong>Padel</strong> en el filtro</td><td>Quedan <strong>2</strong>, y son <code>C-03</code> y <code>C-04</code></td></tr>
+        <tr><td>4</td><td>Elijo <strong>Tenis</strong> en el filtro</td><td>No queda <strong>ninguna</strong> cancha y aparece el <strong>estado vacío</strong></td></tr>
+        <tr><td>5</td><td>Vuelvo a <strong>Todas</strong></td><td>Vuelven las <strong>4</strong>: el filtro esconde, no borra</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Las herramientas nuevas</h3>
+
+  <div class="tabla-scroll">
+    <table>
+      <thead><tr><th>Orden</th><th>Qué hace</th></tr></thead>
+      <tbody>
+        <tr><td><code>.select('padel')</code></td><td>Elige una opción de un <code>&lt;select&gt;</code>. Va el <strong>valor</strong> de la opción, no lo que se lee en pantalla</td></tr>
+        <tr><td><code>.should('have.length', 4)</code></td><td>Cuántos elementos coinciden con el selector</td></tr>
+        <tr><td><code>.each((fila) =&gt; { … })</code></td><td>Recorre todos los encontrados, uno por uno</td></tr>
+        <tr><td><code>cy.wrap(fila)</code></td><td>Le devuelve los poderes de Cypress al elemento que recibiste dentro del <code>.each()</code></td></tr>
+        <tr><td><code>.should('not.be.empty')</code></td><td>El elemento tiene algo escrito adentro</td></tr>
+        <tr><td><code>[data-cy="cancha"][data-id="C-03"]</code></td><td>Apunta a <strong>una</strong> cancha concreta sin contar posiciones</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="alto">
+    <strong>Ojo con los valores del filtro.</strong>
+    <p>
+      En pantalla se lee «Padel», pero el valor de la opción es <code>padel</code> — en minúscula.
+      <code>.select()</code> quiere el valor. Si le pasas lo que se ve, Cypress te va a decir que esa
+      opción no existe.
+    </p>
+  </div>
+
+  <div class="nota">
+    <strong>Por qué el escenario 4 vale doble.</strong>
+    <p>
+      El estado vacío es de los que nadie prueba a mano —hay que buscar una combinación que no
+      devuelva nada— y de los que más se rompen. Una pantalla que en vez de decir «no hay canchas de
+      ese tipo» se queda en blanco parece <em>caída</em>, y el socio cierra la aplicación creyendo que
+      no anda.
+    </p>
+    <p>
+      Comprueba las dos caras: que <strong>no</strong> hay ninguna tarjeta <em>y</em> que el mensaje
+      <strong>sí</strong> se ve. Una sola de las dos no alcanza.
+    </p>
+  </div>
+
+  <div class="ojo">
+    <strong>Pista sobre el escenario 2.</strong>
+    <p>
+      Dentro del <code>.each()</code>, la variable que recibes <strong>no es</strong> una cadena de
+      Cypress: es el elemento pelado. Si le encadenas un <code>.find()</code> directo, no espera, no
+      reintenta y no aparece en el panel. Envuélvelo primero.
+    </p>
+  </div>
+
+  <h3>Criterios de aceptación</h3>
+
+  <div class="check">
+    <h4>Se revisa esto, uno por uno</h4>
+    <ul>
+      <li>El escenario 2 usa <code>.each()</code> con <code>cy.wrap()</code> adentro. <strong>No</strong> repite cuatro bloques copiados.</li>
+      <li>El escenario 3 identifica las canchas por <code>data-id</code>, no por <code>.first()</code>, <code>.eq()</code> ni posición.</li>
+      <li>El escenario 4 comprueba <strong>las dos</strong> caras: ninguna tarjeta y el mensaje visible.</li>
+      <li>Para «no hay ninguna tarjeta» usas <code>not.exist</code>, no <code>not.be.visible</code>.</li>
+      <li>El <code>.select()</code> recibe el valor de la opción (<code>padel</code>, <code>tenis</code>), no el texto que se lee.</li>
+      <li>El <code>beforeEach</code> reinicia los datos y entra. Los 5 escenarios parten del mismo punto.</li>
+      <li>El escenario 5 demuestra que filtrar no pierde datos.</li>
+    </ul>
+  </div>
+
+  <div class="alto">
+    <strong>La diferencia que te va a morder:</strong> cuando un elemento desaparece con
+    <code>v-if</code>, <strong>se va de la página</strong> → <code>not.exist</code>. Cuando solo queda
+    escondido, <strong>sigue ahí</strong> → <code>not.be.visible</code>. Elegir el equivocado te da un
+    test rojo sin que nada esté roto, y vas a perder media hora buscando el error donde no está.
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<section class="ejercicio" id="ej4">
+  <h2>Requisito 4 — Cuando el servidor falla</h2>
+  <p class="meta"><strong>Entregable:</strong> <code>cypress/e2e/04-servidor.cy.js</code> · <strong>5 escenarios</strong> · Acá aparece <code>cy.intercept</code>.</p>
+
+  <h3>Qué se necesita</h3>
+
+  <p>
+    Hasta ahora el servidor siempre te contestó bien. En la vida real se cae, demora, o devuelve una
+    lista vacía. <strong>Ésos son los estados que nadie prueba</strong> —porque cuesta provocarlos a
+    mano— y son los que se rompen. Con <code>cy.intercept</code> cada uno sale en una línea.
+  </p>
+
+  <div class="tabla-scroll">
+    <table>
+      <thead><tr><th>#</th><th>Situación</th><th>Qué tienes que comprobar</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td>Todo normal, pero <strong>escuchando</strong> la petición de canchas</td>
+          <td>La respuesta llega con estado <strong>200</strong> y después se ven las 4 canchas</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>El servidor se cae: contesta <strong>500</strong></td>
+          <td>Se ve el mensaje de error, hay botón «Reintentar», <strong>no hay ninguna cancha</strong> y el mensaje <strong>no contiene «500»</strong></td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td>Después de ese error, hago clic en «Reintentar» y ahora el servidor sí responde</td>
+          <td>El error <strong>desaparece</strong> y se ven las <strong>3</strong> canchas del archivo de datos</td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td>El servidor responde bien, pero <strong>sin ninguna cancha libre</strong></td>
+          <td>Aparece el <strong>estado vacío</strong> y ninguna tarjeta</td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td>El servidor se demora <strong>1,5 segundos</strong> en contestar</td>
+          <td>Antes se ve «Cargando las canchas…»; después de que contesta, <strong>ya no</strong></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Cómo se usa <code>cy.intercept</code></h3>
+
+  <div class="flujo">
+    <span>la pantalla pide</span><em>→</em>
+    <span class="hi">Cypress escucha</span><em>→</em>
+    <span>deja pasar · o contesta él mismo · o finge un error</span><em>→</em>
+    <span>la pantalla recibe</span>
+  </div>
+
+  <div class="tabla-scroll">
+    <table>
+      <thead><tr><th>Lo que quieres</th><th>Cómo se escribe</th><th>¿Llega al servidor?</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Escuchar</strong> y poder esperar</td><td><code>cy.intercept('GET', '/api/canchas').as('cargar')</code></td><td class="ok">Sí, pasa de largo</td></tr>
+        <tr><td><strong>Contestar</strong> con datos fijos</td><td><code>cy.intercept('GET', '/api/canchas', { body: { … } })</code></td><td class="no">No</td></tr>
+        <tr><td><strong>Contestar</strong> desde un archivo</td><td><code>cy.intercept(…, { fixture: 'canchas-tarde.json' })</code></td><td class="no">No</td></tr>
+        <tr><td><strong>Fingir</strong> que se cayó</td><td><code>cy.intercept(…, { statusCode: 500 })</code></td><td class="no">No</td></tr>
+        <tr><td><strong>Fingir</strong> que anda lento</td><td><code>cy.intercept(…, { delay: 1500, body: { … } })</code></td><td class="no">No</td></tr>
+        <tr><td><strong>Esperar</strong> a que termine</td><td><code>cy.wait('@cargar')</code></td><td>—</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="alto">
+    <strong>El orden no es negociable: interceptar ANTES de provocar la petición.</strong>
+    <p>
+      <code>cy.intercept</code> instala un oyente. Una petición que salió antes de que el oyente
+      existiera es una petición que Cypress nunca pilló, y tu <code>cy.wait('@alias')</code> se va a
+      quedar esperando hasta rendirse, con el mensaje <em>«no request ever occurred»</em>.
+    </p>
+    <p>
+      En estos cinco escenarios eso significa: <strong>primero el <code>cy.intercept</code>, después el
+      <code>cy.visit</code> y el acceso</strong>. Nunca al revés.
+    </p>
+  </div>
+
+  <h3>El archivo de datos que te damos</h3>
+
+  <p>
+    Para el escenario 3 necesitas una respuesta falsa distinta a la semilla. Cuando los datos
+    inventados pasan de dos líneas, no se escriben dentro del test: se guardan en
+    <code>cypress/fixtures/</code>. Crea este archivo tal cual.
+  </p>
+
+  <span class="file">cypress/fixtures/canchas-tarde.json</span>
+<pre><code>{
+  "reservasDelDia": 0,
+  "canchas": [
+    { "id": "C-07", "nombre": "Cancha 7", "tipo": "padel",     "hora": "16:00", "valor": 12000 },
+    { "id": "C-08", "nombre": "Cancha 8", "tipo": "padel",     "hora": "17:00", "valor": 12000 },
+    { "id": "C-09", "nombre": "Cancha 9", "tipo": "futbolito", "hora": "16:30", "valor": 20000 }
+  ]
+}</code></pre>
+
+  <div class="ojo">
+    <strong>Para el escenario 4 no necesitas archivo.</strong>
+    <p>
+      Una lista vacía cabe en una línea. Acuérdate de la forma que anotaste en la preparación: es un
+      <strong>objeto con dos llaves</strong>. Si le entregas un arreglo pelado, la pantalla revienta y
+      vas a creer que Cypress está fallando.
+    </p>
+  </div>
+
+  <div class="nota">
+    <strong>Escenario 5: por qué el retardo es la única forma de probar el «Cargando…».</strong>
+    <p>
+      En tu computador el servidor de clase contesta en dos milisegundos: ese mensaje aparece y
+      desaparece antes de que alcances a verlo, y un test tampoco alcanza. Con
+      <code>delay: 1500</code> le das a la pantalla tiempo suficiente para mostrarlo, y recién ahí se
+      puede comprobar. No es hacer trampa — es la única manera.
+    </p>
+  </div>
+
+  <h3>Criterios de aceptación</h3>
+
+  <div class="check">
+    <h4>Se revisa esto, uno por uno</h4>
+    <ul>
+      <li>Todos los <code>cy.intercept</code> están <strong>antes</strong> del <code>cy.visit</code>.</li>
+      <li>El escenario 1 usa un <code>cy.intercept</code> <strong>sin respuesta</strong> — solo escucha — y espera el alias.</li>
+      <li>El escenario 2 comprueba <strong>las cuatro</strong> cosas: mensaje visible, botón «Reintentar», ninguna cancha, y que no aparezca el número 500.</li>
+      <li>El escenario 3 declara una <strong>segunda</strong> intercepción sobre la misma dirección, después del error. Ése es el mecanismo, no un truco.</li>
+      <li>El escenario 3 usa <code>fixture</code>, no un objeto escrito a mano en el test.</li>
+      <li>El escenario 4 le entrega un objeto con <code>canchas</code> y <code>reservasDelDia</code>, no un arreglo.</li>
+      <li>El escenario 5 comprueba el «Cargando…» <strong>antes</strong> del <code>cy.wait</code> y su ausencia <strong>después</strong>.</li>
+      <li>Cero <code>cy.wait</code> con número. Todas las esperas son por alias.</li>
+    </ul>
+  </div>
+
+  <div class="alto">
+    <strong>Si un escenario se queda pegado hasta que Cypress lo mata</strong>, casi siempre es una de
+    dos: interceptaste después de la petición, o le pusiste el alias a una dirección que no coincide
+    con la que sale de verdad. Abre el panel de <code>cy:open</code> y mira la lista de peticiones: ahí
+    se ve cuál salió y cuál escuchaste.
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<section class="ejercicio" id="ej5">
+  <h2>Requisito 5 — Comandos propios y la regla del negocio</h2>
+  <p class="meta"><strong>Entregables:</strong> <code>cypress/support/commands.js</code> y <code>cypress/e2e/05-reservas.cy.js</code> · <strong>3 escenarios</strong> · <strong>Acá está el defecto.</strong></p>
+
+  <h3>Primero: deja de repetirte</h3>
+
+  <p>
+    A estas alturas todos tus <code>beforeEach</code> se parecen: reiniciar datos, visitar, escribir
+    correo, escribir clave, entrar. Eso es <strong>ruido</strong>: quien lee el test tiene que saltarse
+    cinco líneas que no dicen nada sobre lo que se está probando.
+  </p>
+
+  <p>
+    Cypress deja que te inventes tus propias órdenes. Le enseñas una vez qué significa «entrar» y
+    después escribes <code>cy.entrar()</code> en cualquier test, como si viniera de fábrica.
+  </p>
+
+  <span class="file file--maqueta">Forma de un comando propio</span>
+<pre><code>Cypress.Commands.add('nombreDelComando', (parametro) =&gt; {
+  // Ojo con el `return`: sin el, la cadena se corta y no puedes
+  // encadenar .click() ni .should() despues.
+  return cy.get(`[data-cy="${parametro}"]`)
+})</code></pre>
+
+  <p>
+    Tu trabajo en esta parte es escribir <strong>tres comandos</strong> en
+    <code>cypress/support/commands.js</code>, y comprobar que <code>cypress/support/e2e.js</code> lo
+    importa.
+  </p>
+
+  <div class="tabla-scroll">
+    <table>
+      <thead><tr><th>Comando</th><th>Qué tiene que hacer</th></tr></thead>
+      <tbody>
+        <tr><td><code>cy.reiniciarDatos()</code></td><td>Dejar el servidor como recién instalado, con las 4 canchas y el contador en 0</td></tr>
+        <tr><td><code>cy.entrar()</code></td><td>Hacer el acceso completo con las credenciales del socio y no volver hasta estar en <code>/canchas</code></td></tr>
+        <tr><td><code>cy.reservarCancha(id)</code></td><td>Buscar la cancha por su <code>data-id</code> y hacer clic en su botón «Reservar»</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="ojo">
+    <strong>La regla para saber si un comando propio vale la pena.</strong>
+    <p>
+      Si esconde <strong>una intención del usuario</strong> —«entrar», «reservar la cancha X»—, hazlo.
+      Si solo esconde <strong>un selector</strong> —<code>cy.botonEntrar()</code>—, no: estás
+      inventando un diccionario que nadie va a recordar y que tapa lo que el test hace de verdad.
+    </p>
+  </div>
+
+  <h3>Después: la regla de las dos reservas</h3>
+
+  <p>
+    Ahora los tres escenarios. Son pocos y pesados: acá se juega la plata del complejo.
+  </p>
+
+  <div class="tabla-scroll">
+    <table>
+      <thead><tr><th>#</th><th>Situación</th><th>Qué tienes que comprobar</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td>Reservo la cancha <code>C-01</code></td>
+          <td>Desaparece de la lista, quedan <strong>3</strong> canchas y el contador dice <strong>«1 de 2»</strong></td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>Reservo <code>C-01</code> y después <code>C-02</code></td>
+          <td>Quedan <strong>2</strong> canchas, el contador dice <strong>«2 de 2»</strong>, aparece el aviso del límite y <strong>todos</strong> los botones «Reservar» quedan <strong>deshabilitados</strong></td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td>Reservo <code>C-03</code> y recargo la pantalla de canchas</td>
+          <td><code>C-03</code> <strong>sigue sin aparecer</strong>: la reserva quedó guardada de verdad, no solo en pantalla</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="alto">
+    <strong>Uno de estos tres se te va a poner rojo. Es a propósito.</strong>
+    <p>
+      Cuando pase: <strong>no toques el test</strong>. El test está diciendo la verdad — la aplicación
+      no cumple la regla que el complejo prometió. Arregla <code>VistaCanchas.vue</code>, vuelve a
+      correr, y cuenta en el README qué estaba mal, qué provocaba y cuál de tus escenarios lo delató.
+    </p>
+    <p>
+      Un test que se arregla bajándole la exigencia no es un test: es un adorno.
+    </p>
+  </div>
+
+  <div class="ojo">
+    <strong>Pista sobre el escenario 3, que es el que más gente escribe mal.</strong>
+    <p>
+      Si recargas la pantalla apenas haces clic, la petición de reserva puede ir todavía en camino y el
+      servidor no alcanza a enterarse: recargas, la cancha vuelve a aparecer, y tu test falla acusando
+      a la aplicación de algo que no hizo.
+    </p>
+    <p>
+      Antes de recargar, <strong>asegúrate de que el servidor recibió la orden</strong>. Ya sabes cómo:
+      es lo mismo que hiciste en el Requisito 4 con las peticiones de canchas, pero ahora sobre
+      <code>POST /api/canchas/*/reservar</code>. El <code>*</code> significa «cualquier cosa en ese
+      tramo de la dirección».
+    </p>
+  </div>
+
+  <h3>Criterios de aceptación</h3>
+
+  <div class="check">
+    <h4>Se revisa esto, uno por uno</h4>
+    <ul>
+      <li>Existen los tres comandos y están en <code>cypress/support/commands.js</code>, no copiados en cada spec.</li>
+      <li><code>cypress/support/e2e.js</code> importa <code>./commands.js</code>.</li>
+      <li><strong>Reescribiste los requisitos 2, 3 y 4</strong> para que usen <code>cy.entrar()</code> y <code>cy.reiniciarDatos()</code>. No queda ni un acceso escrito a mano fuera del <code>02-acceso.cy.js</code>.</li>
+      <li>El escenario 2 comprueba que están deshabilitados <strong>todos</strong> los botones que quedan, no solo el primero.</li>
+      <li>El escenario 3 espera la confirmación del servidor antes de recargar.</li>
+      <li>El defecto está arreglado <strong>en <code>VistaCanchas.vue</code></strong>, no tapado en el test.</li>
+      <li>El README explica el defecto en dos líneas: qué estaba mal, qué provocaba y qué escenario lo pilló.</li>
+      <li>La suite completa pasa: 22 escenarios más los 2 del ejemplo.</li>
+    </ul>
+  </div>
+
+  <div class="nota">
+    <strong>Por qué el escenario 2 vale por toda la actividad.</strong>
+    <p>
+      El acceso, el filtro y el estado vacío son comodidad. Esto es <strong>plata</strong>: si la regla
+      de las dos canchas no se cumple, tres socios se llevan el recinto entero un sábado y el resto se
+      queda afuera. Ese tipo de fallo no lo pilla nadie mirando la pantalla, porque <em>parece</em> que
+      todo anda bien.
+    </p>
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<section class="ejercicio" id="cierre">
+  <h2>Cierre</h2>
+
+  <h3>Qué entregas</h3>
+
+  <div class="tabla-scroll">
+    <table>
+      <thead><tr><th>Archivo</th><th>Qué contiene</th><th>Escenarios</th></tr></thead>
+      <tbody>
+        <tr><td><code>cypress/e2e/00-ejemplo.cy.js</code></td><td>El que te dimos</td><td>2</td></tr>
+        <tr><td><code>cypress/e2e/01-primeros-pasos.cy.js</code></td><td>Abrir y mirar</td><td>4</td></tr>
+        <tr><td><code>cypress/e2e/02-acceso.cy.js</code></td><td>El trámite de entrar y salir</td><td>5</td></tr>
+        <tr><td><code>cypress/e2e/03-lista.cy.js</code></td><td>La lista, el filtro y el estado vacío</td><td>5</td></tr>
+        <tr><td><code>cypress/e2e/04-servidor.cy.js</code></td><td>Error, vacío, lento y recuperación</td><td>5</td></tr>
+        <tr><td><code>cypress/e2e/05-reservas.cy.js</code></td><td>La regla de las dos reservas</td><td>3</td></tr>
+        <tr><td><code>cypress/support/commands.js</code></td><td>Tus tres comandos propios</td><td>—</td></tr>
+        <tr><td><code>cypress/fixtures/canchas-tarde.json</code></td><td>Los datos falsos del R4</td><td>—</td></tr>
+        <tr><td><code>src/vistas/VistaCanchas.vue</code></td><td><strong>Con el defecto arreglado</strong></td><td>—</td></tr>
+        <tr><td><code>README.md</code></td><td>Los tres hallazgos</td><td>—</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="nota">
+    <strong>Lo que tiene que decir el README. Tres puntos, dos líneas cada uno.</strong>
+    <ol style="margin-bottom:0">
+      <li>El <strong>defecto del R5</strong>: qué estaba mal, qué provocaba en la vida real, cómo lo arreglaste y cuál de tus escenarios lo delató.</li>
+      <li>Qué pasó cuando probaste el <strong>estado vacío</strong> del R3, y por qué una pantalla en blanco no es lo mismo que una pantalla que avisa.</li>
+      <li>Un escenario que <strong>quisiste escribir y no pudiste</strong>, y por qué. Si no hubo ninguno, dilo — pero piénsalo antes.</li>
+    </ol>
+  </div>
+
+  <h3>Cómo se revisa tu entrega</h3>
+
+  <div class="tabla-scroll">
+    <table>
+      <thead><tr><th>#</th><th>Comprobación</th><th>Cómo se hace</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>La suite completa pasa en verde</td><td><code>npm run cy:run</code>: 24 escenarios, 0 fallos</td></tr>
+        <tr><td>2</td><td>El defecto está arreglado en la aplicación, no tapado en el test</td><td>Leer la comparación del límite en <code>VistaCanchas.vue</code></td></tr>
+        <tr><td>3</td><td><strong>Cero esperas por tiempo</strong></td><td>Buscar <code>cy.wait(</code> seguido de un número: no puede aparecer ninguna</td></tr>
+        <tr><td>4</td><td><strong>Cero selectores frágiles</strong></td><td>Buscar <code>nth-child</code>, <code>.btn</code> y clases CSS en <code>cypress/e2e/</code></td></tr>
+        <tr><td>5</td><td>Los escenarios son independientes</td><td>Correr un archivo suelto: <code>npx cypress run --spec cypress/e2e/03-lista.cy.js</code></td></tr>
+        <tr><td>6</td><td>Cada archivo deja el sistema en estado conocido</td><td>Que todos tengan <code>cy.reiniciarDatos()</code> en su <code>beforeEach</code></td></tr>
+        <tr><td>7</td><td>Las intercepciones están antes de la acción</td><td>Que ningún <code>cy.intercept</code> aparezca después de su <code>cy.visit</code></td></tr>
+        <tr><td>8</td><td>Los comandos propios se usan de verdad</td><td>Buscar <code>data-cy="correo"</code> fuera de <code>02-acceso.cy.js</code>: no puede aparecer</td></tr>
+        <tr><td>9</td><td>Los nombres describen comportamiento</td><td>Leer los <code>it</code> sin mirar el código: ¿se entiende qué hace el socio?</td></tr>
+        <tr><td>10</td><td>La suite corre dos veces seguidas con el mismo resultado</td><td>Ejecutarla dos veces sin reiniciar el servidor</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Los errores que te van a pasar</h3>
+
+  <div class="tabla-scroll">
+    <table>
+      <thead><tr><th>Síntoma</th><th>Causa</th><th>Arreglo</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><em>«cy.visit() failed trying to load»</em></td>
+          <td>La aplicación no está levantada</td>
+          <td><code>npm run dev</code> en la otra terminal, y no la cierres</td>
+        </tr>
+        <tr>
+          <td><em>«Port 5173 is in use»</em></td>
+          <td>Tienes otro Vite dando vueltas</td>
+          <td>Ciérralo, o cambia <code>baseUrl</code> y <code>server.port</code> a la vez</td>
+        </tr>
+        <tr>
+          <td>No aparece ningún archivo de test en Cypress</td>
+          <td>Tu archivo no termina en <code>.cy.js</code> o está fuera de <code>cypress/e2e/</code></td>
+          <td>Revisa el nombre y la carpeta</td>
+        </tr>
+        <tr>
+          <td><em>«no request ever occurred»</em></td>
+          <td>Interceptaste después de que salió la petición</td>
+          <td><code>cy.intercept</code> siempre <strong>antes</strong> del <code>cy.visit</code></td>
+        </tr>
+        <tr>
+          <td>La pantalla revienta al interceptar</td>
+          <td>Le entregaste un arreglo donde la aplicación espera un objeto</td>
+          <td><code>{ body: { canchas: [], reservasDelDia: 0 } }</code></td>
+        </tr>
+        <tr>
+          <td><em>«expected to find option with value tenis»</em></td>
+          <td>Le pasaste a <code>.select()</code> el texto visible en vez del valor</td>
+          <td>El valor va en minúscula: <code>padel</code>, <code>tenis</code></td>
+        </tr>
+        <tr>
+          <td>El escenario del «Cargando…» nunca lo alcanza a ver</td>
+          <td>El servidor de clase contesta en 2 ms</td>
+          <td><code>delay: 1500</code> en la intercepción</td>
+        </tr>
+        <tr>
+          <td>Un escenario pasa solo pero falla en grupo</td>
+          <td>El anterior reservó una cancha y no reiniciaste</td>
+          <td><code>cy.reiniciarDatos()</code> en el <code>beforeEach</code></td>
+        </tr>
+        <tr>
+          <td><em>«element is detached from the DOM»</em></td>
+          <td>Encadenaste dos búsquedas y la lista se volvió a dibujar en el medio</td>
+          <td>Una sola búsqueda que apunte directo a lo que te interesa</td>
+        </tr>
+        <tr>
+          <td><code>cy.entrar is not a function</code></td>
+          <td><code>e2e.js</code> no importa <code>commands.js</code></td>
+          <td>Agregar <code>import './commands.js'</code></td>
+        </tr>
+        <tr>
+          <td>La comprobación ve la pantalla anterior</td>
+          <td>Guardaste el resultado en una variable en vez de encadenar</td>
+          <td>La comprobación va pegada con un punto al <code>cy.get</code></td>
+        </tr>
+        <tr>
+          <td>Un test <strong>nunca</strong> falla, ni cuando debería</td>
+          <td>Escribiste <code>.should</code> sin paréntesis, o afirmaste sobre nada</td>
+          <td>Rómpelo a propósito y comprueba que se pone rojo</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>La prueba de que tus tests sirven</h3>
+
+  <div class="alto">
+    <strong>Rómpelos a propósito. Esto es parte de la entrega, no un extra.</strong>
+    <p>
+      Cuando tengas los 24 en verde, entra a <code>VistaCanchas.vue</code> y haz
+      <strong>uno por uno</strong> estos tres destrozos, corriendo la suite después de cada uno y
+      devolviendo el cambio antes del siguiente:
+    </p>
+    <ol>
+      <li>Borra el <code>data-cy="vacio"</code> del párrafo del estado vacío.</li>
+      <li>Cambia el mensaje de error por <code>'Error 500'</code>.</li>
+      <li>Saca el <code>:disabled</code> del botón «Reservar».</li>
+    </ol>
+    <p>
+      <strong>Si alguno de los tres no pone nada rojo, ese comportamiento no estaba probado.</strong>
+      Devuelve el cambio y escribe el escenario que faltaba. Un test que sigue verde con la aplicación
+      rota es peor que no tener test, porque le enseña al equipo a confiar en algo que no mira.
+    </p>
+  </div>
+
+  <h3>Si terminas antes</h3>
+
+  <div class="reto">
+    <h4>Extras, en orden de dificultad</h4>
+    <ol>
+      <li>
+        <strong>Lo que se envía, no solo lo que llega.</strong> Escribe un escenario que compruebe que
+        la pantalla de acceso manda al servidor exactamente <code>{ correo, clave }</code>, con esos
+        dos nombres y sin espacios de más. Pista: <code>cy.wait('@alias')</code> no solo espera,
+        también te entrega la petición completa.
+      </li>
+      <li>
+        <strong>El botón que no se bloquea.</strong> Con <code>delay</code> en la reserva, comprueba
+        qué pasa si el socio hace clic dos veces seguidas en «Reservar» antes de que llegue la
+        respuesta. ¿Se cuenta una reserva o dos? Documenta lo que encuentres — no tienes que
+        arreglarlo.
+      </li>
+      <li>
+        <strong>El teléfono.</strong> Agrega <code>cy.viewport('iphone-x')</code> a un escenario del
+        R3 y comprueba que la lista sigue usable en pantalla chica. Si algo se rompe, anótalo.
+      </li>
+      <li>
+        <strong>Una sola orden.</strong> Instala <code>start-server-and-test</code> y deja un script
+        <code>npm run e2e</code> que levante Vite, corra la suite y apague todo. Es la pieza que usa un
+        equipo de verdad para correr esto de forma automática.
+      </li>
+      <li>
+        <strong>La pregunta incómoda.</strong> El límite de dos reservas lo controla la
+        <em>pantalla</em>; el servidor acepta todas las que le manden. Escribe un
+        <code>cy.request</code> que pida tres reservas <strong>sin pasar por la interfaz</strong> y mira
+        qué contesta. Explica en el README por qué eso es un problema y de quién es la
+        responsabilidad de arreglarlo.
+      </li>
+    </ol>
+  </div>
+
+  <div class="vivo">
+    <strong>Lo que estás demostrando con esta entrega.</strong>
+    <p>
+      Que sabes traducir <strong>una regla del negocio</strong> —«máximo dos canchas por socio»— a un
+      escenario que la vigila sola, todos los días, sin que nadie se acuerde de revisarla. Y que sabes
+      probar los caminos que nadie mira: el error, el vacío y la espera.
+    </p>
+    <p>
+      Veintidós escenarios que corren en segundos y que se ponen rojos <em>cuando de verdad hay algo
+      roto</em>. Eso es lo que se entrega.
+    </p>
+  </div>
+</section>
+
+
+<footer>
+  Módulo 7 · Lección 4 · Actividad práctica III — Pruebas end-to-end · Vue 3 + Vite + Vue Router + Cypress<br>
+  Complemento de la práctica en vivo <code>practica-vivo-e2e-cypress.html</code>
+</footer>
+
+</div>
+
+
+<script>
+  // ====================================================================
+  // RESALTADOR DE SINTAXIS + ÍNDICE DE ARCHIVOS
+  // Escrito a mano y sin dependencias: este documento tiene que abrirse
+  // desde el disco (file://) y funcionar sin internet.
+  // ====================================================================
+  (function () {
+    'use strict';
+
+    function esc(s) {
+      return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function pintar(texto, patrones) {
+      if (!texto) return '';
+      var re = new RegExp(patrones.map(function (p) { return '(' + p.r + ')'; }).join('|'), 'gm');
+      var salida = '', ultimo = 0, m;
+
+      while ((m = re.exec(texto)) !== null) {
+        if (m[0] === '') { re.lastIndex++; continue; }
+        if (m.index > ultimo) salida += esc(texto.slice(ultimo, m.index));
+
+        var clase = null;
+        for (var i = 1; i <= patrones.length; i++) {
+          if (m[i] !== undefined) { clase = patrones[i - 1].c; break; }
+        }
+        salida += clase
+          ? '<span class="t-' + clase + '">' + esc(m[0]) + '</span>'
+          : esc(m[0]);
+
+        ultimo = m.index + m[0].length;
+      }
+
+      salida += esc(texto.slice(ultimo));
+      return salida;
+    }
+
+    var JS = [
+      { c: 'com',  r: '\\/\\*[\\s\\S]*?\\*\\/' },
+      { c: 'com',  r: '\\/\\/[^\\n]*' },
+      { c: 'str',  r: '`(?:\\\\[\\s\\S]|[^`\\\\])*`' },
+      { c: 'str',  r: '"(?:\\\\.|[^"\\\\\\n])*"' },
+      { c: 'str',  r: "'(?:\\\\.|[^'\\\\\\n])*'" },
+      { c: 'kw',   r: '\\b(?:import|from|export|default|const|let|var|function|return|if|else|for|while|do|switch|case|break|continue|try|catch|finally|throw|new|delete|typeof|instanceof|class|extends|async|await|yield|this|super|static)\\b' },
+      { c: 'lit',  r: '\\b(?:true|false|null|undefined|NaN|Infinity)\\b' },
+      { c: 'num',  r: '\\b(?:0[xX][\\da-fA-F]+|\\d+(?:\\.\\d+)?(?:[eE][+-]?\\d+)?)\\b' },
+      { c: 'fn',   r: '\\b[A-Za-z_$][\\w$]*(?=\\s*\\()' },
+      { c: 'prop', r: '\\b[A-Za-z_$][\\w$]*(?=\\s*:)' },
+      { c: 'op',   r: '=>|\\.\\.\\.|\\?\\?|\\?\\.|&&|\\|\\||[←→↓]+' }
+    ];
+
+    var JSON_ = [
+      { c: 'com',  r: '\\/\\/[^\\n]*' },
+      { c: 'com',  r: '←[^\\n]*' },
+      { c: 'prop', r: '"(?:\\\\.|[^"\\\\])*"(?=\\s*:)' },
+      { c: 'str',  r: '"(?:\\\\.|[^"\\\\])*"' },
+      { c: 'lit',  r: '\\b(?:true|false|null)\\b' },
+      { c: 'num',  r: '-?\\b\\d+(?:\\.\\d+)?\\b' },
+      { c: 'op',   r: '[→]+' }
+    ];
+
+    var BASH = [
+      { c: 'com',  r: '#[^\\n]*' },
+      { c: 'str',  r: 'https?:\\/\\/[^\\s\'"\\\\]+' },
+      { c: 'str',  r: '"(?:\\\\.|[^"\\\\])*"' },
+      { c: 'str',  r: "'(?:\\\\[\\s\\S]|[^'\\\\])*'" },
+      { c: 'kw',   r: '^\\s*(?:npm|npx|node|cd|curl|git|mkdir|for|do|done|echo|export|cat|rm|ls|printf)\\b' },
+      { c: 'fn',   r: '(?:^|\\s)-{1,2}[A-Za-z][\\w-]*' },
+      { c: 'op',   r: '[←→|]+' },
+      { c: 'num',  r: '\\b\\d+(?:\\.\\d+)?\\b' }
+    ];
+
+    var ARBOL = [
+      { c: 'com',  r: '←[^\\n]*' },
+      { c: 'op',   r: '[├└│─]+' },
+      { c: 'ruta', r: '[\\w.@-]+\\/' }
+    ];
+
+    var CSS_ = [
+      { c: 'com',  r: '\\/\\*[\\s\\S]*?\\*\\/' },
+      { c: 'str',  r: '"(?:\\\\.|[^"\\\\])*"' },
+      { c: 'prop', r: '[-\\w]+(?=\\s*:)' },
+      { c: 'num',  r: '-?\\b\\d+(?:\\.\\d+)?(?:px|rem|em|%|s|ms|vh|vw|fr)?\\b' },
+      { c: 'tag',  r: '[.#][-\\w]+' }
+    ];
+
+    var HTML_ = [
+      { c: 'com',    r: '<!--[\\s\\S]*?-->' },
+      { c: 'interp', r: '\\{\\{[^}]*\\}\\}' },
+      { c: 'dir',    r: '(?:^|\\s)(?:v-[\\w:.\\-]+|[@:#][\\w:.\\-]+)(?=[=\\s>])' },
+      { c: 'attr',   r: '(?:^|\\s)[A-Za-z][\\w\\-]*(?==)' },
+      { c: 'str',    r: '"(?:\\\\.|[^"\\\\])*"' },
+      { c: 'str',    r: "'(?:\\\\.|[^'\\\\])*'" },
+      { c: 'tag',    r: '<\\/?[A-Za-z][\\w\\-]*' },
+      { c: 'tag',   r: '\\/?>' }
+    ];
+
+    function pintarVue(texto) {
+      var re = /<script(?:\s[^>]*)?>|<\/script>|<style(?:\s[^>]*)?>|<\/style>/g;
+      var salida = '', pos = 0, modo = 'html', m;
+
+      function region(t) {
+        if (!t) return '';
+        if (modo === 'js') return pintar(t, JS);
+        if (modo === 'css') return pintar(t, CSS_);
+        return pintar(t, HTML_);
+      }
+
+      while ((m = re.exec(texto)) !== null) {
+        salida += region(texto.slice(pos, m.index));
+        salida += pintar(m[0], HTML_);
+        pos = m.index + m[0].length;
+
+        if (/^<script/.test(m[0]))       modo = 'js';
+        else if (/^<\/script/.test(m[0])) modo = 'html';
+        else if (/^<style/.test(m[0]))    modo = 'css';
+        else if (/^<\/style/.test(m[0]))  modo = 'html';
+      }
+
+      salida += region(texto.slice(pos));
+      return salida;
+    }
+
+    function detectarLenguaje(etiqueta, codigo) {
+      var clases = etiqueta ? etiqueta.className : '';
+      var titulo = etiqueta ? etiqueta.textContent : '';
+
+      if (/[├└]──/.test(codigo)) return 'arbol';
+      if (/\.json\b/i.test(titulo)) return 'json';
+      if (/file--api/.test(clases)) return 'json';
+      if (/<\/(?:template|script|style)>/.test(codigo) || /\.vue\b/i.test(titulo)) return 'vue';
+      if (/file--term/.test(clases)) {
+        return /(?:^|\n)\s*(?:npm|npx|node|cd|curl|git|mkdir|for|echo|printf)\b/.test(codigo)
+          ? 'bash' : 'js';
+      }
+      if (/\.css\b/i.test(titulo)) return 'css';
+      if (/\.html\b/i.test(titulo)) return 'html';
+      if (/^\s*[{[]/.test(codigo) && /"\s*:/.test(codigo)) return 'json';
+      return 'js';
+    }
+
+    var PINTORES = {
+      js:    function (t) { return pintar(t, JS); },
+      json:  function (t) { return pintar(t, JSON_); },
+      bash:  function (t) { return pintar(t, BASH); },
+      arbol: function (t) { return pintar(t, ARBOL); },
+      css:   function (t) { return pintar(t, CSS_); },
+      html:  function (t) { return pintar(t, HTML_); },
+      vue:   pintarVue
+    };
+
+    var NOMBRES = { js: 'js', json: 'json', bash: 'terminal', arbol: 'estructura', css: 'css', vue: 'vue', html: 'html' };
+
+    // Ojo con el orden de la alternancia: 'json' va ANTES que 'js'.
+    // Al revés, "package.json" coincidiría como "package.js".
+    var RUTA = /([\w@.\-]+(?:\/[\w@.\-]+)*\.(?:json|js|vue|ts|css|html))/;
+
+    var bloques = Array.prototype.slice.call(document.querySelectorAll('pre > code'));
+
+    bloques.forEach(function (codigo, indice) {
+      var pre = codigo.parentNode;
+
+      var etiqueta = pre.previousElementSibling;
+      if (etiqueta && !etiqueta.classList.contains('file')) etiqueta = null;
+
+      var texto = codigo.textContent;
+      var lenguaje = detectarLenguaje(etiqueta, texto);
+
+      codigo.innerHTML = PINTORES[lenguaje](texto);
+      pre.setAttribute('data-lang', NOMBRES[lenguaje] || lenguaje);
+
+      var clases = etiqueta ? etiqueta.className : '';
+      var titulo = etiqueta ? etiqueta.textContent : '';
+      var esRuta = RUTA.test(titulo);
+      var tipo;
+
+      if (/file--maqueta/.test(clases))    tipo = 'maqueta';
+      else if (/file--mal/.test(clases))  tipo = 'problema';
+      else if (/file--api/.test(clases))  tipo = 'api';
+      else if (/file--term/.test(clases)) tipo = 'terminal';
+      else if (esRuta || /file--bien/.test(clases)) tipo = 'solucion';
+      else tipo = 'neutro';
+
+      pre.setAttribute('data-tipo', tipo);
+      if (tipo === 'solucion' && etiqueta) etiqueta.classList.add('file--bien');
+
+      if (etiqueta && !etiqueta.id) etiqueta.id = 'cod-' + indice;
+      if (etiqueta) etiqueta.setAttribute('data-tipo', tipo);
+    });
+
+    document.querySelectorAll('section.ejercicio').forEach(function (seccion) {
+      var archivos = Array.prototype.slice
+        .call(seccion.querySelectorAll('.file[data-tipo="solucion"]'))
+        .map(function (et) {
+          var m = et.textContent.match(RUTA);
+          return m ? { nombre: m[1], id: et.id } : null;
+        })
+        .filter(Boolean);
+
+      var vistos = {};
+      archivos = archivos.filter(function (a) {
+        if (vistos[a.nombre]) return false;
+        vistos[a.nombre] = true;
+        return true;
+      });
+
+      if (archivos.length < 2) return;
+
+      var caja = document.createElement('details');
+      caja.className = 'resuelto';
+      caja.open = true;
+
+      var titulo = document.createElement('summary');
+      titulo.appendChild(document.createTextNode('Archivos que te entregamos en esta sección'));
+      var conteo = document.createElement('span');
+      conteo.className = 'resuelto__conteo';
+      conteo.textContent = archivos.length + (archivos.length === 1 ? ' archivo' : ' archivos');
+      titulo.appendChild(conteo);
+      caja.appendChild(titulo);
+
+      var lista = document.createElement('ol');
+      archivos.forEach(function (a) {
+        var li = document.createElement('li');
+        var enlace = document.createElement('a');
+        enlace.href = '#' + a.id;
+        enlace.textContent = a.nombre;
+        li.appendChild(enlace);
+        lista.appendChild(li);
+      });
+      caja.appendChild(lista);
+
+      var pie = document.createElement('p');
+      pie.className = 'resuelto__nota';
+      pie.textContent = 'Éstos vienen listos: cópialos tal cual. Lo que tú escribes son los archivos '
+        + 'de cypress/e2e/, que no están acá.';
+      caja.appendChild(pie);
+
+      var meta = seccion.querySelector('.meta');
+      if (meta && meta.nextSibling) seccion.insertBefore(caja, meta.nextSibling);
+      else if (meta) seccion.appendChild(caja);
+    });
+  })();
+
+</script>
+
+<script>
+  // Botón "Copiar" en cada bloque de código.
+  (function () {
+    'use strict';
+
+    function copiarTexto(texto) {
+      if (navigator.clipboard && window.isSecureContext) {
+        return navigator.clipboard.writeText(texto);
+      }
+
+      return new Promise(function (resolver, rechazar) {
+        var area = document.createElement('textarea');
+        area.value = texto;
+        area.setAttribute('readonly', '');
+        area.style.position = 'fixed';
+        area.style.top = '-1000px';
+        area.style.opacity = '0';
+        document.body.appendChild(area);
+        area.select();
+
+        try {
+          document.execCommand('copy') ? resolver() : rechazar();
+        } catch (e) {
+          rechazar(e);
+        } finally {
+          document.body.removeChild(area);
+        }
+      });
+    }
+
+    function marcar(boton, clase, texto) {
+      boton.className = 'btn-copiar ' + clase;
+      boton.textContent = texto;
+      clearTimeout(boton._temporizador);
+      boton._temporizador = setTimeout(function () {
+        boton.className = 'btn-copiar';
+        boton.textContent = '📋 Copiar';
+      }, 1800);
+    }
+
+    document.querySelectorAll('pre > code').forEach(function (codigo, indice) {
+      var pre = codigo.parentNode;
+
+      var caja = document.createElement('div');
+      caja.className = 'bloque-codigo';
+      pre.parentNode.insertBefore(caja, pre);
+      caja.appendChild(pre);
+
+      var boton = document.createElement('button');
+      boton.type = 'button';
+      boton.className = 'btn-copiar';
+      boton.textContent = '📋 Copiar';
+      boton.setAttribute('aria-label', 'Copiar el bloque de código ' + (indice + 1));
+
+      boton.addEventListener('click', function () {
+        copiarTexto(codigo.innerText)
+          .then(function () { marcar(boton, 'ok', '✓ Copiado'); })
+          .catch(function () { marcar(boton, 'falla', '✕ Error'); });
+      });
+
+      caja.appendChild(boton);
+    });
+  })();
+
+</script>
+
+<script>
+  // ====================================================================
+  // BARRA FIJA: en qué requisito estoy y cuánto llevo leído.
+  // ====================================================================
+  (function () {
+    'use strict';
+
+    var ETIQUETAS = {
+      prep:   { corta: 'Prep', larga: 'De dónde partes — proyecto y aplicación', color: '#5b6b7c' },
+      ej1:    { corta: '1',    larga: 'Requisito 1 — Abrir y mirar',            color: '#2f8f66' },
+      ej2:    { corta: '2',    larga: 'Requisito 2 — El acceso',                color: '#2a6fc9' },
+      ej3:    { corta: '3',    larga: 'Requisito 3 — La lista y el filtro',     color: '#c47a1b' },
+      ej4:    { corta: '4',    larga: 'Requisito 4 — Cuando el servidor falla', color: '#7a4fc0' },
+      ej5:    { corta: '5',    larga: 'Requisito 5 — Comandos propios y la regla', color: '#b8384f' },
+      cierre: { corta: 'Fin',  larga: 'Cierre: cómo se revisa tu entrega',      color: '#33424f' }
+    };
+
+    var secciones = Array.prototype.slice.call(
+      document.querySelectorAll('section.ejercicio[id]')
+    );
+    if (!secciones.length) return;
+
+    var barra = document.createElement('div');
+    barra.className = 'barra-fija';
+
+    var progreso = document.createElement('div');
+    progreso.className = 'barra-progreso';
+    var relleno = document.createElement('i');
+    progreso.appendChild(relleno);
+
+    var cuerpo = document.createElement('div');
+    cuerpo.className = 'barra-cuerpo';
+
+    var marca = document.createElement('span');
+    marca.className = 'barra-marca';
+    marca.textContent = 'M7 · L4';
+
+    var actual = document.createElement('span');
+    actual.className = 'barra-actual';
+    actual.textContent = 'Actividad práctica III · Fundamentos end-to-end';
+
+    var saltos = document.createElement('nav');
+    saltos.className = 'barra-saltos';
+    saltos.setAttribute('aria-label', 'Ir a un requisito');
+
+    var enlaces = secciones.map(function (seccion) {
+      var info = ETIQUETAS[seccion.id] || { corta: seccion.id, larga: seccion.id, color: '#34495e' };
+      var a = document.createElement('a');
+      a.href = '#' + seccion.id;
+      a.textContent = info.corta;
+      a.title = info.larga;
+      a.setAttribute('aria-label', info.larga);
+      a.style.setProperty('--acento-pill', info.color);
+      a._info = info;
+      saltos.appendChild(a);
+      return a;
+    });
+
+    var arriba = document.createElement('a');
+    arriba.href = '#';
+    arriba.className = 'arriba';
+    arriba.textContent = '↑';
+    arriba.title = 'Volver arriba';
+    arriba.setAttribute('aria-label', 'Volver arriba');
+    arriba.addEventListener('click', function (e) {
+      e.preventDefault();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+    saltos.appendChild(arriba);
+
+    cuerpo.appendChild(marca);
+    cuerpo.appendChild(actual);
+    cuerpo.appendChild(saltos);
+    barra.appendChild(progreso);
+    barra.appendChild(cuerpo);
+    document.body.appendChild(barra);
+
+    var pendiente = false;
+
+    function actualizar() {
+      pendiente = false;
+
+      var alto = document.documentElement.scrollHeight - window.innerHeight;
+      var leido = alto > 0 ? (window.scrollY / alto) * 100 : 0;
+      relleno.style.width = Math.min(100, Math.max(0, leido)) + '%';
+
+      var limite = window.scrollY + (window.innerHeight * 0.28);
+      var activa = null;
+
+      for (var i = 0; i < secciones.length; i++) {
+        if (secciones[i].offsetTop <= limite) activa = i;
+      }
+
+      enlaces.forEach(function (a, i) {
+        var esta = (i === activa);
+        a.classList.toggle('activo', esta);
+        if (esta) a.setAttribute('aria-current', 'true');
+        else a.removeAttribute('aria-current');
+      });
+
+      actual.textContent = activa === null
+        ? 'Actividad práctica III · Fundamentos end-to-end'
+        : enlaces[activa]._info.larga;
+    }
+
+    function alDesplazar() {
+      if (pendiente) return;
+      pendiente = true;
+      window.requestAnimationFrame(actualizar);
+    }
+
+    window.addEventListener('scroll', alDesplazar, { passive: true });
+    window.addEventListener('resize', alDesplazar, { passive: true });
+    actualizar();
+  })();
+
+</script>
+</body>
+</html>
